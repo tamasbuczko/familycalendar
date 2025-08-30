@@ -1,29 +1,56 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow users to create and manage their own user documents
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is family owner
+    function isFamilyOwner(familyId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)).data.role == 'owner';
+    }
+    
+    // Helper function to check if user is family member
+    function isFamilyMember(familyId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid));
+    }
+    
+    // Users can only access their own user documents
     match /artifacts/{projectId}/users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Allow users to create and manage families
+    // Family management with proper security
     match /artifacts/{projectId}/families/{familyId} {
-      allow read, write: if request.auth != null;
+      // Only authenticated users can create families
+      allow create: if isAuthenticated();
       
-      // Allow access to family members
+      // Only family members can read family data
+      allow read: if isFamilyMember(familyId);
+      
+      // Only family owner can update/delete family
+      allow update, delete: if isFamilyOwner(familyId);
+      
+      // Family members management
       match /members/{memberId} {
-        allow read, write: if request.auth != null;
+        allow read: if isFamilyMember(familyId);
+        allow write: if isFamilyOwner(familyId);
       }
       
-      // Allow access to family events
+      // Family events management
       match /events/{eventId} {
-        allow read, write: if request.auth != null;
+        allow read: if isFamilyMember(familyId);
+        allow write: if isFamilyMember(familyId);
       }
     }
     
-    // Allow listing families collection
+    // Family listing - only show families user is member of
     match /artifacts/{projectId}/families {
-      allow read: if request.auth != null;
+      allow read: if isAuthenticated();
     }
   }
 } 
