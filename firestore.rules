@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow users to create and manage their own user documents
+    match /artifacts/{projectId}/users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow users to create and manage families
+    match /artifacts/{projectId}/families/{familyId} {
+      allow read, write: if request.auth != null;
+      
+      // Allow access to family members
+      match /members/{memberId} {
+        allow read, write: if request.auth != null;
+      }
+      
+      // Allow access to family events
+      match /events/{eventId} {
+        allow read, write: if request.auth != null;
+      }
+    }
+    
+    // Allow listing families collection
+    match /artifacts/{projectId}/families {
+      allow read: if request.auth != null;
+    }
+  }
+} 

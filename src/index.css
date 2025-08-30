@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles */
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Custom form styles */
+.form-radio {
+  @apply w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500;
+}
+
+.form-checkbox {
+  @apply w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500;
+} 
