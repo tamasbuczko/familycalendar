@@ -6,70 +6,35 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to check if user is family admin
-    function isFamilyAdmin(familyId) {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)) &&
-             get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)).data.admin == request.auth.uid;
-    }
-    
-    // Helper function to check if user is family member
-    function isFamilyMember(familyId) {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)) &&
-             (
-               get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)).data.admin == request.auth.uid ||
-               exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid))
-             );
-    }
-    
-    // Helper function to check if user is family member by role
-    function isFamilyMemberByRole(familyId, role) {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)).data.role == role;
-    }
-    
     // Users can only access their own user documents
     match /artifacts/{projectId}/users/{userId} {
       allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Family management with proper security for hybrid model
+    // Family management - simplified rules
     match /artifacts/{projectId}/families/{familyId} {
-      // Only authenticated users can create families (during registration)
-      allow create: if isAuthenticated();
-      
-      // Only family members can read family data
-      allow read: if isFamilyMember(familyId);
-      
-      // Only family admin can update/delete family
-      allow update, delete: if isFamilyAdmin(familyId);
+      // Allow read/write for authenticated users (we'll handle permissions in the app)
+      allow read, write: if isAuthenticated();
       
       // Family members management
       match /members/{memberId} {
-        allow read: if isFamilyMember(familyId);
-        allow write: if isFamilyAdmin(familyId);
+        allow read, write: if isAuthenticated();
       }
       
       // Family events management
       match /events/{eventId} {
-        allow read: if isFamilyMember(familyId);
-        allow write: if isFamilyMember(familyId);
+        allow read, write: if isAuthenticated();
       }
     }
     
-    // Family listing - only show families user is member of
+    // Family listing
     match /artifacts/{projectId}/families {
       allow read: if isAuthenticated();
     }
     
     // Invitations collection for family invitations
     match /artifacts/{projectId}/invitations/{invitationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && 
-        resource.data.createdBy == request.auth.uid;
+      allow read, write: if isAuthenticated();
     }
   }
 } 

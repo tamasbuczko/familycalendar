@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import QRCode from './ui/QRCode';
 
 const LandingPage = () => {
     const navigate = useNavigate();
@@ -72,21 +73,35 @@ const LandingPage = () => {
                         Szervezd a családod heti rutinjait, iskolai eseményeit és különóráit 
                         egy helyen. Gyerekeknek játékos, szülőknek praktikus.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <button
-                            onClick={handleTryApp}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-semibold transition duration-300 ease-in-out transform hover:scale-105 shadow-lg"
-                        >
-                            <i className="fas fa-rocket mr-2"></i>
-                            Ingyenesen Kipróbálom
-                        </button>
-                        <button
-                            onClick={handleLearnMore}
-                            className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-8 py-4 rounded-lg text-lg font-semibold transition duration-300 ease-in-out transform hover:scale-105"
-                        >
-                            <i className="fas fa-info-circle mr-2"></i>
-                            Több Információ
-                        </button>
+                    <div className="flex flex-col lg:flex-row gap-8 justify-center items-center">
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <button
+                                onClick={handleTryApp}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-semibold transition duration-300 ease-in-out transform hover:scale-105 shadow-lg"
+                            >
+                                <i className="fas fa-rocket mr-2"></i>
+                                Ingyenesen Kipróbálom
+                            </button>
+                            <button
+                                onClick={handleLearnMore}
+                                className="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-8 py-4 rounded-lg text-lg font-semibold transition duration-300 ease-in-out transform hover:scale-105"
+                            >
+                                <i className="fas fa-info-circle mr-2"></i>
+                                Több Információ
+                            </button>
+                        </div>
+                        
+                        {/* QR Code Section */}
+                        <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-blue-100">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+                                Telefonról is elérhető
+                            </h3>
+                            <QRCode 
+                                url="https://familyweekcalendar.web.app" 
+                                size={180}
+                                className=""
+                            />
+                        </div>
                     </div>
                 </div>
             </section>
