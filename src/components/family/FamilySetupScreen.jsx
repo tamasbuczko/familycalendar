@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFirebase } from '../../context/FirebaseContext.jsx';
-import { firebaseConfig } from '../../firebaseConfig.js';
+import { firebaseConfig } from '../../config.js';
 import {
     doc,
     getDoc,
@@ -22,6 +22,7 @@ const FamilySetupScreen = ({ onLogout }) => {
     const [joinFamilyId, setJoinFamilyId] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loadingFamilyIds, setLoadingFamilyIds] = useState(new Set());
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [showJoinForm, setShowJoinForm] = useState(false);
     const [loadingFamilies, setLoadingFamilies] = useState(false);
@@ -352,11 +353,15 @@ const FamilySetupScreen = ({ onLogout }) => {
 
     const handleJoinExistingFamily = async (familyId) => {
         setError('');
-        setLoading(true);
+        setLoadingFamilyIds(prev => new Set([...prev, familyId]));
 
         if (!userId) {
             setError("Hiba: Nincs bejelentkezett felhasználó.");
-            setLoading(false);
+            setLoadingFamilyIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(familyId);
+                return newSet;
+            });
             return;
         }
 
@@ -376,10 +381,18 @@ const FamilySetupScreen = ({ onLogout }) => {
             }
 
             setUserFamilyId(familyId);
-            setLoading(false);
+            setLoadingFamilyIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(familyId);
+                return newSet;
+            });
             setError('');
         } catch (err) {
-            setLoading(false);
+            setLoadingFamilyIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(familyId);
+                return newSet;
+            });
             let errorMessage = "Hiba a családhoz való csatlakozáskor.";
             if (err.code === 'permission-denied') {
                 errorMessage += " Kérjük, ellenőrizze a Firebase Firestore biztonsági szabályait.";
@@ -480,10 +493,10 @@ const FamilySetupScreen = ({ onLogout }) => {
                                         </div>
                                         <button
                                             onClick={() => handleJoinExistingFamily(family.id)}
-                                            disabled={loading}
+                                            disabled={loadingFamilyIds.has(family.id)}
                                             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200 disabled:opacity-50"
                                         >
-                                            {loading ? "Belépés..." : "Belépés"}
+                                            {loadingFamilyIds.has(family.id) ? "Belépés..." : "Belépés"}
                                         </button>
                                     </div>
                                 ))}

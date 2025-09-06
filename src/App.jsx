@@ -46,11 +46,13 @@ function AppRoutes() {
     }
 
     // Ha nincs családi azonosító, jelenítsen meg család beállító képernyőt
+    // (Ez csak akkor történik meg, ha a felhasználó nem a hibrid regisztrációval jött létre)
     if (!userFamilyId) {
         return <FamilySetupScreen onLogout={handleLogout} />;
     }
 
     // Ha minden rendben van, jelenítsen meg a naptár alkalmazást
+    // A hibrid regisztráció után automatikusan itt landol a felhasználó
     return <CalendarApp onLogout={handleLogout} />;
 }
 

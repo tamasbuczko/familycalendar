@@ -1,45 +1,101 @@
 // Service Worker for Család Háló PWA
-const CACHE_NAME = 'csalad-halo-v1';
+const STATIC_CACHE = 'static-v3';
+const DYNAMIC_CACHE = 'dynamic-v3';
+
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/src/main.jsx',
-  '/src/App.jsx',
-  '/src/components/LandingPage.jsx',
-  '/src/components/auth/AuthScreen.jsx',
-  '/src/components/calendar/CalendarApp.jsx',
-  '/src/components/calendar/CalendarView.jsx',
-  '/src/components/family/FamilySetupScreen.jsx',
-  '/src/components/ui/Modal.jsx',
-  '/src/components/ui/ConfirmModal.jsx',
-  '/src/context/FirebaseContext.jsx',
-  '/src/firebaseConfig.js',
-  '/src/utils/calendarUtils.js',
-  '/src/utils/firebaseUtils.js',
-  '/src/index.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap'
+  '/icon-192x192.svg',
+  '/sw.js'
 ];
 
-// Install event - cache resources
+// Install event - cache static resources
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Opened cache');
+    Promise.all([
+      caches.open(STATIC_CACHE).then((cache) => {
+        console.log('Static cache opened');
         return cache.addAll(urlsToCache);
+      }),
+      caches.open(DYNAMIC_CACHE).then((cache) => {
+        console.log('Dynamic cache opened');
+        return cache;
       })
+    ])
   );
 });
 
-// Fetch event - serve from cache if available
+// Fetch event - Network first, fallback to cache
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  
+  // Skip non-GET requests
+  if (request.method !== 'GET') {
+    return;
+  }
+
+  // Handle navigation requests (SPA routing)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Cache successful navigation responses
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Offline fallback - return offline page
+          return caches.match('/offline.html');
+        })
+    );
+    return;
+  }
+
+  // Handle static assets - Cache first, fallback to network
+  if (request.destination === 'style' || 
+      request.destination === 'script' || 
+      request.destination === 'image') {
+    event.respondWith(
+      caches.match(request)
+        .then((response) => {
+          if (response) {
+            return response; // Return cached version
+          }
+          // Fetch from network and cache
+          return fetch(request).then((response) => {
+            if (response.status === 200) {
+              const responseClone = response.clone();
+              caches.open(DYNAMIC_CACHE).then((cache) => {
+                cache.put(request, responseClone);
+              });
+            }
+            return response;
+          });
+        })
+    );
+    return;
+  }
+
+  // Default: Network first, fallback to cache
   event.respondWith(
-    caches.match(event.request)
+    fetch(request)
       .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request);
+        if (response.status === 200) {
+          const responseClone = response.clone();
+          caches.open(DYNAMIC_CACHE).then((cache) => {
+            cache.put(request, responseClone);
+          });
+        }
+        return response;
+      })
+      .catch(() => {
+        return caches.match(request);
       })
   );
 });
@@ -50,7 +106,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
             console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
@@ -60,13 +116,14 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Handle offline fallback
-self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html');
-      })
-    );
+// Background sync for offline actions
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'background-sync') {
+    event.waitUntil(doBackgroundSync());
   }
 });
+
+async function doBackgroundSync() {
+  // Handle offline actions when connection is restored
+  console.log('Background sync triggered');
+}

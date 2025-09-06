@@ -16,21 +16,74 @@ Egy családi naptár-alkalmazás, amely segíti a szülőket a gyerekek napi rut
 * **Adatbázis tervezés**: relational DB (PostgreSQL/MySQL) az események, családok, felhasználók tárolására; cache réteg (Redis) a gyors szinkronhoz.
 * **API architektúra**: REST vagy GraphQL a frontend és backend kommunikációhoz; WebSocket/Firebase realtime az események azonnali frissítéséhez.
 
-## 3. Bevételi modell
+## 3. Felhasználói élmény és regisztráció
+
+### 3.1 Hibrid Regisztrációs Modell
+
+**Kulcs elv**: Itt dől el, mennyire lesz barátságos az app első élménye. A hibrid modell lehetővé teszi, hogy a család egységesen jelenjen meg kifelé, belül pedig mindenkinek személyes élménye legyen.
+
+#### 🔑 Regisztráció folyamata
+
+**1. Család alapítói regisztráció**
+- Egy ember (pl. anya/apa) regisztrál először
+- E-mail / Google / Facebook login
+- Megadja a Család nevét (pl. „Budzkó család")
+- Opcionálisan: város, gyerekek száma, érdeklődési körök
+- ➡️ Ezzel létrejön a Család profil, és a regisztráló lesz az Admin
+
+**2. Családtagok meghívása**
+- Admin kap egy „meghívás" funkciót
+- E-mail / telefon / QR kód
+- Pl. „Hívd meg a párodat és a gyerekeidet"
+- A meghívott:
+  - Kap linket → Regisztrál (csatlakozik a családhoz)
+  - Vagy: kap egy guest profilt (pl. gyerekeknek, akinek a szülő tölti ki a nevét, avatarját, de nincs saját jelszava → beléphet később, ha nagyobb lesz)
+
+**3. Profil testreszabás**
+- Minden felhasználó a saját fiókján belül beállíthat:
+  - Avatar (pl. fénykép, emoji, állatka gyerekeknek)
+  - Szerep a családban (szülő / gyerek / nagyszülő)
+  - Saját értesítési beállítások
+  - Saját naptár-szinkron (pl. Google Calendar, iCal import)
+
+#### 🔐 Bejelentkezés folyamata
+
+- Felhasználónként történik, nem családonként
+- Belép e-mail/jelszóval vagy social loginnal
+- A rendszer tudja, hogy melyik család(ok)hoz tartozik
+- Ha valaki több családhoz tartozik (pl. elvált szülő gyereke) → választhat, melyik család naptárát akarja látni (mint Slackben több workspace)
+
+#### 👨‍👩‍👧 Példa élményben
+
+1. **Anna regisztrál** → „Kovács család" létrehozva
+2. **Meghívja a férjét és 2 gyerekét**
+3. **Férj e-mailből regisztrál** → saját profil
+4. **Gyerekeknek Anna létrehoz gyors profilt** (név, avatar, születési év), később ők is beléphetnek
+5. **Most már mindenki láthatja a közös naptárat** → de a saját színnel jelzett eseményeket is
+
+#### 💡 A hibrid modell előnyei
+
+- **Kifelé**: A család egységesen jelenik meg (pl. más családoknak)
+- **Befelé**: Mindenkinek személyes élménye van
+- **Skálázhatóság**: Könnyen bővíthető új családtagokkal
+- **Flexibilitás**: Guest profilok gyerekeknek, teljes profilok felnőtteknek
+- **Családi dinamika**: Admin jogosultságok, szerep-alapú hozzáférés
+
+## 4. Bevételi modell
 
 * **Ingyenes alapszolgáltatás** a gyors terjedésért.
 * **Marketplace réteg**: programok, szolgáltatók (cirkusz, játszóház, étterem) hirdethetnek.
 * **Prémium funkciók**: extra értesítések, offline mód, kiterjesztett naptárnézet.
 * **Gamifikációs tartalmak**: jelvények, családi kihívások.
 
-## 4. Különlegességek
+## 5. Különlegességek
 
 * Gyerekeknek élmény (jelvények, kihívások).
 * Szülőknek hasznosság (naptár, programok).
 * Családok közötti meghívás és közös szervezés.
 * Nyelvtanulási lehetőség: külföldi családokkal közös hét.
 
-## 5. Versenykép elemzés
+## 6. Versenykép elemzés
 
 * **Fő versenytársak**: Google Calendar, Cozi, Family Wall.
 * **Versenyelőnyünk**:
@@ -45,7 +98,7 @@ Egy családi naptár-alkalmazás, amely segíti a szülőket a gyerekek napi rut
   * Kevés interakció és gamifikáció.
   * Nincs integrált marketplace vagy nemzetközi csereprogram.
 
-## 6. Felhasználói persona-ok
+## 7. Felhasználói persona-ok
 
 * **Család 1: Fiatal szülők 1-2 gyerekkel**
 
@@ -57,12 +110,12 @@ Egy családi naptár-alkalmazás, amely segíti a szülőket a gyerekek napi rut
 
   * Probléma: nyelvi és kulturális csere lehetőségek szervezése.
 
-## 7. Kockázatelemzés
+## 8. Kockázatelemzés
 
 * **Adatvédelem és GDPR megfelelés**: titkosítás, szülői hozzájárulás, európai szerverek.
 * **Technikai kihívások**: skálázás, offline mód, push értesítések stabilitása.
 
-## 8. MVP definíció
+## 9. MVP definíció
 
 * **Első verzió funkciók**:
 
@@ -73,19 +126,19 @@ Egy családi naptár-alkalmazás, amely segíti a szülőket a gyerekek napi rut
 * **Nice to have**: jelvények, marketplace, nemzetközi csereprogram.
 * **Tesztelési terv**: alfa belső kör, béta meghívásos családokkal, visszajelzések alapján finomhangolás.
 
-## 9. Mérőszámok és célok
+## 10. Mérőszámok és célok
 
 * **Felhasználói növekedés**: 1000 aktív család 6 hónapon belül.
 * **Engagement metrikák**: heti aktív felhasználók >50%, események száma/felhasználó, meghívások száma.
 * **Bevételi célok**: marketplace bevétel 2. évben, prémium előfizetés 3. évben.
 
-## 10. Fejlesztési ütemezés
+## 11. Fejlesztési ütemezés
 
 * **Sprint tervek** (2 hét/sprint): naptár funkciók, szinkron, meghívások, PWA optimalizálás.
 * **Milestone-ok**: MVP béta 3 hónap, publikus indulás 6 hónap, prémium funkciók 12 hónap.
 * **Erőforrások**: 2 fejlesztő, 1 UX/UI designer, 1 PM, 1 marketinges.
 
-## 11. Marketing stratégia
+## 12. Marketing stratégia
 
 * **Terjesztés**: baráti meghívások, közösségi média, blogok és fórumok.
 * **Csatornák**: Facebook, Instagram, Pinterest (szülői csoportok), hírlevelek, influencerek a családi tech területen.
@@ -93,6 +146,8 @@ Egy családi naptár-alkalmazás, amely segíti a szülőket a gyerekek napi rut
 
 ---
 
-## 12. Összegzés
+## 13. Összegzés
 
 Első lépésben PWA-ként indulunk a gyors terjedésért, majd natív appokkal bővítjük a funkciókat. Versenyelőnyünk a közösségi és gamifikált élmény, marketplace és nemzetközi csereprogram. A dokumentáció lefedi az MVP-t, kockázatokat, célokat, mérőszámokat, technológiát és marketinget.
+
+**A hibrid regisztrációs modell kulcsfontosságú**: lehetővé teszi, hogy a család egységesen jelenjen meg kifelé, belül pedig mindenkinek személyes és testreszabott élménye legyen. Ez a megközelítés jelentősen javítja a felhasználói élményt és a családi dinamika kezelését.

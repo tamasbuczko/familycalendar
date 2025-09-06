@@ -6,17 +6,28 @@ service cloud.firestore {
       return request.auth != null;
     }
     
-    // Helper function to check if user is family owner
-    function isFamilyOwner(familyId) {
+    // Helper function to check if user is family admin
+    function isFamilyAdmin(familyId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)).data.role == 'owner';
+             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)) &&
+             get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)).data.admin == request.auth.uid;
     }
     
     // Helper function to check if user is family member
     function isFamilyMember(familyId) {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid));
+             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)) &&
+             (
+               get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)).data.admin == request.auth.uid ||
+               exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid))
+             );
+    }
+    
+    // Helper function to check if user is family member by role
+    function isFamilyMemberByRole(familyId, role) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/artifacts/$(request.auth.token.project_id)/families/$(familyId)/members/$(request.auth.uid)).data.role == role;
     }
     
     // Users can only access their own user documents
@@ -24,21 +35,21 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Family management with proper security
+    // Family management with proper security for hybrid model
     match /artifacts/{projectId}/families/{familyId} {
-      // Only authenticated users can create families
+      // Only authenticated users can create families (during registration)
       allow create: if isAuthenticated();
       
       // Only family members can read family data
       allow read: if isFamilyMember(familyId);
       
-      // Only family owner can update/delete family
-      allow update, delete: if isFamilyOwner(familyId);
+      // Only family admin can update/delete family
+      allow update, delete: if isFamilyAdmin(familyId);
       
       // Family members management
       match /members/{memberId} {
         allow read: if isFamilyMember(familyId);
-        allow write: if isFamilyOwner(familyId);
+        allow write: if isFamilyAdmin(familyId);
       }
       
       // Family events management
@@ -51,6 +62,14 @@ service cloud.firestore {
     // Family listing - only show families user is member of
     match /artifacts/{projectId}/families {
       allow read: if isAuthenticated();
+    }
+    
+    // Invitations collection for family invitations
+    match /artifacts/{projectId}/invitations/{invitationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && 
+        resource.data.createdBy == request.auth.uid;
     }
   }
 } 

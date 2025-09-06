@@ -4,123 +4,157 @@
 
 Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bontja. Minden lépés egy konkrét, tesztelhető funkciót ad hozzá, és az előző lépésekre épül.
 
+**Fontos változás**: A regisztrációs rendszert hibrid modellre terveztük át, ahol a család egységesen jelenik meg kifelé, belül pedig mindenkinek személyes élménye van.
+
 ---
 
 ## 🚀 **Phase 1: Foundation & Landing (0-2 hét)**
 
-### **1.1 Landing Page (1. hét)**
+### **1.1 Landing Page (1. hét)** ✅ **KÉSZ**
 **Cél**: Meglévő felhasználók és új érdeklődők számára
 **Deliverable**: Egyszerű, információs weboldal
 
 **Funkciók:**
-- [ ] Családi naptár bemutatása
-- [ ] Funkciók listázása
-- [ ] "Kipróbálom" gomb (átirányít a PWA-ra)
-- [ ] Responsive design
-- [ ] SEO optimalizálás
+- [x] Családi naptár bemutatása
+- [x] Funkciók listázása
+- [x] "Kipróbálom" gomb (átirányít a PWA-ra)
+- [x] Responsive design
+- [x] SEO optimalizálás
 
 **Technológia:**
-- React + TailwindCSS
-- Vercel/Netlify hosting
+- React + TailwindCSS ✅
+- Vercel/Netlify hosting ✅
 - Google Analytics
 
 **Következő lépés**: 1.2 - PWA Alapok
 
 ---
 
-### **1.2 PWA Alapok (1. hét)**
+### **1.2 PWA Alapok (1. hét)** ✅ **KÉSZ**
 **Cél**: Telepíthető webes alkalmazás
 **Deliverable**: PWA konfiguráció
 
 **Funkciók:**
-- [ ] Service Worker implementálása
-- [ ] Web App Manifest
-- [ ] Offline támogatás alapok
-- [ ] "Telepítés" prompt
+- [x] Service Worker implementálása
+- [x] Web App Manifest
+- [x] Offline támogatás alapok
+- [x] "Telepítés" prompt
 
 **Technológia:**
-- Workbox (Google)
-- PWA Builder eszközök
+- Workbox (Google) ✅
+- PWA Builder eszközök ✅
 
-**Következő lépés**: 1.3 - Felhasználói Regisztráció
+**Következő lépés**: 1.3 - Hibrid Felhasználói Regisztráció
 
 ---
 
-### **1.3 Felhasználói Regisztráció (1 hét)**
-**Cél**: Új felhasználók könnyű belépése
-**Deliverable**: Regisztrációs rendszer
+### **1.3 Hibrid Felhasználói Regisztráció (1-2 hét)** 🔄 **ÁTTERVEZVE**
+**Cél**: Hibrid regisztrációs rendszer a család alapítói regisztrációval
+**Deliverable**: Átstrukturált regisztrációs rendszer
 
 **Funkciók:**
-- [ ] Email + jelszó regisztráció
-- [ ] Google/Facebook OAuth
-- [ ] Email verifikáció
-- [ ] Jelszó visszaállítás
+- [x] Email + jelszó regisztráció (alap)
+- [x] Google/Facebook OAuth (alap)
+- [x] Email verifikáció (alap)
+- [x] Jelszó visszaállítás (alap)
+- [ ] **ÚJ**: Család alapítói regisztráció (név, város, gyerekek száma)
+- [ ] **ÚJ**: Admin jogosultságok kezelése
+- [ ] **ÚJ**: Családi profil létrehozása regisztrációkor
 
 **Technológia:**
-- Firebase Auth
-- EmailJS vagy Firebase Functions
-
-**Következő lépés**: 2.1 - Család Létrehozás
-
----
-
-## 🏠 **Phase 2: Core Family Features (2-4 hét)**
-
-### **2.1 Család Létrehozás (1 hét)**
-**Cél**: Első család létrehozása
-**Deliverable**: Család kezelő rendszer
-
-**Funkciók:**
-- [ ] Új család létrehozása
-- [ ] Családtagok hozzáadása
-- [ ] Család beállítások
-- [ ] Család profil
-
-**Technológia:**
-- Firestore: families collection
+- Firebase Auth ✅
+- Firestore: families collection (új struktúra)
 - React state management
+
+**Következő lépés**: 1.4 - Családtag Meghívási Rendszer
+
+---
+
+### **1.4 Családtag Meghívási Rendszer (1 hét)** 🚧 **FEJLESZTÉS ALATT**
+**Cél**: Családtagok meghívása e-mail, QR kód vagy guest profilok segítségével
+**Deliverable**: Meghívási rendszer és guest profil kezelés
+
+**Funkciók:**
+- [x] **ÚJ**: Admin meghívó funkció (UI kész)
+- [x] **ÚJ**: E-mail meghívók küldése (alapfunkció kész)
+- [ ] QR kód generálás
+- [ ] Meghívó linkek kezelése
+- [x] **ÚJ**: Guest profil létrehozása gyerekeknek (alapfunkció kész)
+
+**Technológia:**
+- Firebase Functions (email küldés) - tervezett
+- QR kód generálás - tervezett
+- Firestore: invitations collection ✅
+
+**Következő lépés**: 2.1 - Családtag Profil Kezelés
+
+---
+
+## 🏠 **Phase 2: Core Family Features (3-5 hét)**
+
+### **2.1 Családtag Profil Kezelés (1 hét)** 🔄 **ÁTTERVEZVE**
+**Cél**: Családtagok profiljainak kezelése és testreszabása
+**Deliverable**: Profil kezelő rendszer
+
+**Funkciók:**
+- [x] Családtagok hozzáadása (alap)
+- [x] Családtagok szerkesztése (alap)
+- [x] Családtagok törlése (alap)
+- [ ] **ÚJ**: Avatar kezelés (fénykép, emoji, állatka)
+- [ ] **ÚJ**: Szerep beállítása (szülő, gyerek, nagyszülő)
+- [ ] **ÚJ**: Guest profilok gyerekeknek
+- [ ] **ÚJ**: Személyes értesítési beállítások
+
+**Technológia:**
+- Firestore: family_members collection (bővített)
+- Firebase Storage (avatar képek)
+- React avatar komponensek
 
 **Következő lépés**: 2.2 - Naptár Alapok
 
 ---
 
-### **2.2 Naptár Alapok (1 hét)**
+### **2.2 Naptár Alapok (1 hét)** ✅ **KÉSZ**
 **Cél**: Egyszerű esemény kezelés
 **Deliverable**: Alap naptár funkciók
 
 **Funkciók:**
-- [ ] Esemény létrehozása
-- [ ] Esemény szerkesztése
-- [ ] Esemény törlése
-- [ ] Napi/heti nézet
+- [x] Esemény létrehozása
+- [x] Esemény szerkesztése
+- [x] Esemény törlése
+- [x] Napi/heti nézet
+- [x] Ismétlődő események
+- [x] Esemény státuszok (aktív, lemondott)
 
 **Technológia:**
-- Firestore: events collection
-- React Calendar komponens
+- Firestore: events collection ✅
+- React Calendar komponens ✅
 
 **Következő lépés**: 2.3 - Családtag Hozzárendelés
 
 ---
 
-### **2.3 Családtag Hozzárendelés (1 hét)**
+### **2.3 Családtag Hozzárendelés (1 hét)** 🔄 **RÉSZLEGESEN KÉSZ**
 **Cél**: Események hozzárendelése családtagokhoz
 **Deliverable**: Esemény-családtag kapcsolat
 
 **Funkciók:**
-- [ ] Esemény hozzárendelése családtagnak
-- [ ] Családtag esemény listája
-- [ ] Szűrés családtag szerint
-- [ ] Családtag profil nézet
+- [x] Esemény hozzárendelése családtagnak (alap)
+- [ ] **FEJLESZTENDŐ**: Családtag esemény listája
+- [ ] **FEJLESZTENDŐ**: Szűrés családtag szerint
+- [ ] **FEJLESZTENDŐ**: Családtag profil nézet
+- [ ] **ÚJ**: Személyes naptár nézet minden családtagnak
 
 **Technológia:**
-- Firestore: event assignments
-- React filtering
+- Firestore: event assignments ✅
+- React filtering (fejlesztendő)
+- Személyes naptár komponensek
 
 **Következő lépés**: 3.1 - Értesítések
 
 ---
 
-## 🔔 **Phase 3: Notifications & Sharing (4-6 hét)**
+## 🔔 **Phase 3: Notifications & Sharing (5-7 hét)**
 
 ### **3.1 Értesítések (1 hét)**
 **Cél**: Felhasználók értesítése eseményekről
@@ -131,10 +165,12 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 - [ ] Push notifications (böngésző)
 - [ ] Értesítési beállítások
 - [ ] Időzített emlékeztetők
+- [ ] **ÚJ**: Személyes értesítési preferenciák
 
 **Technológia:**
 - Firebase Cloud Messaging
 - EmailJS vagy Firebase Functions
+- Firestore: notification_preferences
 
 **Következő lépés**: 3.2 - Család Meghívás
 
@@ -176,7 +212,7 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 
 ---
 
-## 🎮 **Phase 4: Engagement & Growth (6-8 hét)**
+## 🎮 **Phase 4: Engagement & Growth (7-9 hét)**
 
 ### **4.1 Gamifikáció (1 hét)**
 **Cél**: Gyerekek bevonása és engagement növelése
@@ -214,7 +250,7 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 
 ---
 
-## 🛍️ **Phase 5: Monetization (8-10 hét)**
+## 🛍️ **Phase 5: Monetization (9-11 hét)**
 
 ### **5.1 Marketplace Alapok (1 hét)**
 **Cél**: Külső szolgáltatók integrálása
@@ -252,7 +288,7 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 
 ---
 
-## 📱 **Phase 6: Mobile & Advanced (10-12 hét)**
+## 📱 **Phase 6: Mobile & Advanced (11-13 hét)**
 
 ### **6.1 Mobile App (2 hét)**
 **Cél**: Natív mobil alkalmazás
@@ -292,13 +328,17 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 ## 📊 **Success Metrics & Milestones**
 
 ### **Phase 1 végén:**
-- [ ] Landing page működik
-- [ ] PWA telepíthető
-- [ ] Alap regisztráció működik
+- [x] Landing page működik
+- [x] PWA telepíthető
+- [x] Alap regisztráció működik
+- [ ] **ÚJ**: Hibrid regisztráció működik
+- [ ] **ÚJ**: Családtag meghívások működnek
 
 ### **Phase 2 végén:**
-- [ ] Családok létrehozhatók
-- [ ] Alap naptár működik
+- [x] Családok létrehozhatók
+- [x] Alap naptár működik
+- [ ] **ÚJ**: Családtag profilok testreszabhatók
+- [ ] **ÚJ**: Személyes naptár nézetek működnek
 - [ ] 10 teszt felhasználó
 
 ### **Phase 3 végén:**
@@ -323,18 +363,24 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 
 ---
 
-## 🎯 **Következő Lépés: Landing Page**
+## 🎯 **Következő Lépés: Hibrid Regisztráció Átstrukturálása**
 
-**Kezdjük a 1.1-es lépéssel: Landing Page készítése**
+**Most a 1.3-as lépésnél tartunk: Hibrid Felhasználói Regisztráció átstrukturálása**
 
 **Mit kell csinálni:**
-1. Új React komponens: `LandingPage.jsx`
-2. Routing beállítása
-3. Landing page design
-4. "Kipróbálom" gomb implementálása
+1. **Család alapítói regisztráció** - Család név, város, gyerekek száma megadása
+2. **Admin jogosultságok** - A regisztráló admin lesz
+3. **Családi profil létrehozása** - Automatikus család létrehozás regisztrációkor
+4. **Regisztrációs folyamat módosítása** - Egy lépésben család + felhasználó
 
-**Szeretnéd, hogy kezdjük el a Landing Page fejlesztését?**
+**Jelenlegi állapot:**
+- ✅ Alap regisztráció működik
+- ✅ Firebase Auth működik
+- ✅ Családtagok kezelése működik
+- 🔄 **ÁTTERVEZENDŐ**: Regisztrációs folyamat hibrid modellre
+
+**Szeretnéd, hogy kezdjük el a hibrid regisztráció implementálását?**
 
 ---
 
-*Utoljára frissítve: 2024*
+*Utoljára frissítve: 2024 - Hibrid regisztrációs modell áttervezés*

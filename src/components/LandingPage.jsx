@@ -1,8 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 const LandingPage = () => {
     const navigate = useNavigate();
+    const { isInstallable, installApp } = usePWAInstall();
     
     const handleTryApp = () => {
         // Átirányítás a PWA-ra
@@ -12,6 +14,13 @@ const LandingPage = () => {
     const handleLearnMore = () => {
         // Görgetés a funkciók szekcióhoz
         document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const handleInstallApp = async () => {
+        const success = await installApp();
+        if (success) {
+            console.log('PWA installation successful');
+        }
     };
 
     return (
@@ -31,6 +40,16 @@ const LandingPage = () => {
                             >
                                 Funkciók
                             </button>
+                            {isInstallable && (
+                                <button
+                                    onClick={handleInstallApp}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition duration-300 ease-in-out transform hover:scale-105 mr-2"
+                                    title="Telepítés asztali gépre"
+                                >
+                                    <i className="fas fa-download mr-2"></i>
+                                    Telepítés
+                                </button>
+                            )}
                             <button
                                 onClick={handleTryApp}
                                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition duration-300 ease-in-out transform hover:scale-105"
