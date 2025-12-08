@@ -643,7 +643,7 @@ const LandingPage = () => {
                     </div>
                     
                     <p className="text-purple-200 mt-8 text-sm">
-                        ✅ Nincs bankkártya szükséges  •  ✅ 14 napos ingyenes próba  •  ✅ Bármikor lemondható
+                        ✅ Nem szükséges bankkártya  •  ✅ 14 napos ingyenes próba  •  ✅ Bármikor lemondható
                     </p>
                 </div>
             </section>
