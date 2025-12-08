@@ -64,7 +64,11 @@ const ModalsContainer = ({
     onSaveUserProfile,
     userEmail,
     userDisplayName,
-    userProfileLoading
+    userProfileLoading,
+    
+    // Child mode props
+    isChildMode,
+    childSession
 }) => {
     return (
         <>
@@ -140,15 +144,25 @@ const ModalsContainer = ({
             )}
 
             {/* User Profile Modal */}
-            {showUserProfileModal && (
+            {showUserProfileModal && (() => {
+                console.log("ModalsContainer: Rendering UserProfileModal", {
+                    isChildMode,
+                    childSession,
+                    userEmail,
+                    userDisplayName
+                });
+                return (
                 <UserProfileModal
                     onClose={onCloseUserProfileModal}
                     onSaveProfile={onSaveUserProfile}
-                    userEmail={userEmail}
-                    displayName={userDisplayName}
+                    userEmail={isChildMode ? '' : userEmail}
+                    displayName={isChildMode ? (childSession?.childName || '') : userDisplayName}
                     loading={userProfileLoading}
+                    isChildMode={isChildMode}
+                    childSession={childSession}
                 />
-            )}
+                );
+            })()}
         </>
     );
 };

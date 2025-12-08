@@ -1,15 +1,33 @@
 import React, { useState } from 'react';
 import Modal from '../ui/Modal.jsx';
 
-const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, loading }) => {
-    const [newDisplayName, setNewDisplayName] = useState(displayName || '');
-    const [newEmail, setNewEmail] = useState(userEmail || '');
+const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, loading, isChildMode = false, childSession = null }) => {
+    // Gyerek módban a gyerek adatait használjuk, szülő módban a szülő adatait
+    const currentDisplayName = isChildMode ? (childSession?.childName || '') : (displayName || '');
+    const currentEmail = isChildMode ? '' : (userEmail || '');
+    
+    const [newDisplayName, setNewDisplayName] = useState(currentDisplayName);
+    const [newEmail, setNewEmail] = useState(currentEmail);
 
     // Frissítsük az állapotot, ha a props változik
     React.useEffect(() => {
-        setNewDisplayName(displayName || '');
-        setNewEmail(userEmail || '');
-    }, [displayName, userEmail]);
+        console.log("UserProfileModal: useEffect triggered", {
+            isChildMode,
+            childSession,
+            displayName,
+            userEmail
+        });
+        
+        if (isChildMode) {
+            console.log("UserProfileModal: Setting child data", childSession?.childName);
+            setNewDisplayName(childSession?.childName || '');
+            setNewEmail('');
+        } else {
+            console.log("UserProfileModal: Setting parent data", displayName);
+            setNewDisplayName(displayName || '');
+            setNewEmail(userEmail || '');
+        }
+    }, [displayName, userEmail, isChildMode, childSession]);
     const [showPasswordChange, setShowPasswordChange] = useState(false);
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -42,14 +60,68 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
     };
 
     return (
-        <Modal onClose={onClose} title="Felhasználói Profil">
+        <Modal onClose={onClose} title={isChildMode ? "Gyerek Profil" : "Felhasználói Profil"}>
             <div className="space-y-6">
-                {/* Profil információk */}
-                <div className="bg-blue-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-semibold text-blue-800 mb-3 flex items-center">
-                        <i className="fas fa-user mr-2"></i>
-                        Profil Adatok
-                    </h3>
+                {isChildMode ? (
+                    /* Gyerek profil - csak olvasható */
+                    <div className="bg-purple-50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-purple-800 mb-3 flex items-center">
+                            <span className="text-2xl mr-2">{childSession?.childAvatar}</span>
+                            Gyerek Profil
+                        </h3>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Név
+                                </label>
+                                <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-800">
+                                    {childSession?.childName || 'Névtelen'}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Szerepkör
+                                </label>
+                                <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-800">
+                                    {childSession?.childRole || 'Gyerek'}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Születési dátum
+                                </label>
+                                <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-800">
+                                    {childSession?.childBirthDate || 'Nincs megadva'}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Bejelentkezés ideje
+                                </label>
+                                <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-800">
+                                    {childSession?.loginTime ? new Date(childSession.loginTime).toLocaleString('hu-HU') : 'Nincs megadva'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-sm text-yellow-800">
+                                <i className="fas fa-info-circle mr-2"></i>
+                                Ez egy gyerek profil. A szerkesztéshez szülői jogosultság szükséges.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    /* Szülő profil - szerkeszthető */
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-blue-800 mb-3 flex items-center">
+                            <i className="fas fa-user mr-2"></i>
+                            Profil Adatok
+                        </h3>
                     
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div>
@@ -101,10 +173,12 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
                             </button>
                         </div>
                     </form>
-                </div>
+                    </div>
+                )}
 
-                {/* Jelszó változtatás */}
-                <div className="bg-yellow-50 p-4 rounded-lg">
+                {/* Jelszó változtatás - csak szülő módban */}
+                {!isChildMode && (
+                    <div className="bg-yellow-50 p-4 rounded-lg">
                     <h3 className="text-lg font-semibold text-yellow-800 mb-3 flex items-center">
                         <i className="fas fa-key mr-2"></i>
                         Jelszó Változtatás
@@ -170,7 +244,8 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
                             </button>
                         </form>
                     )}
-                </div>
+                    </div>
+                )}
 
                 {/* Információ */}
                 <div className="bg-gray-50 p-4 rounded-lg">

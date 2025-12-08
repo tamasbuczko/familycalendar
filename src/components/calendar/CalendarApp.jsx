@@ -27,6 +27,7 @@ const CalendarApp = ({ onLogout }) => {
         setChildSession: state.setChildSession,
         setSettingsLoading: state.setSettingsLoading,
         setParentPin: state.setParentPin,
+        setParentPinLoading: state.setParentPinLoading,
         resetSettingsModal: state.resetSettingsModal,
         setUserProfileLoading: state.setUserProfileLoading,
         resetUserProfileModal: state.resetUserProfileModal,
@@ -130,6 +131,7 @@ const CalendarApp = ({ onLogout }) => {
                     }}
                     onEditMember={handleEditMember}
                     onDeleteMember={handleDeleteMember}
+                    isChildMode={isChildMode}
                 />
 
                 <CalendarControls
@@ -208,6 +210,10 @@ const CalendarApp = ({ onLogout }) => {
                 userEmail={auth.currentUser?.email}
                 userDisplayName={state.userDisplayName || auth.currentUser?.displayName}
                 userProfileLoading={state.userProfileLoading}
+                
+                // Child mode props
+                isChildMode={isChildMode}
+                childSession={state.childSession}
             />
 
             <MessageDisplay message={state.message} />

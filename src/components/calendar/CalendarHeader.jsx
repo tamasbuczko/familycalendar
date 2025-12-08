@@ -21,20 +21,26 @@ const CalendarHeader = ({
                             {familyName || 'Családi Naptár'}
                         </h1>
                         {isChildMode && childSession && (
-                            <div className="ml-4 bg-purple-100 px-3 py-1 rounded-full">
+                            <button
+                                onClick={onProfileClick}
+                                className="ml-4 bg-purple-100 hover:bg-purple-200 px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                            >
                                 <span className="text-purple-800 text-sm font-medium">
                                     <span className="text-lg mr-1">{childSession.childAvatar}</span>
                                     {childSession.childName} (Gyerek)
                                 </span>
-                            </div>
+                            </button>
                         )}
                         {!isChildMode && (userDisplayName || userEmail) && (
-                            <div className="ml-4 bg-green-100 px-3 py-1 rounded-full">
+                            <button
+                                onClick={onProfileClick}
+                                className="ml-4 bg-green-100 hover:bg-green-200 px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                            >
                                 <span className="text-green-800 text-sm font-medium">
                                     <i className="fas fa-user mr-1"></i>
                                     {userDisplayName || userEmail}
                                 </span>
-                            </div>
+                            </button>
                         )}
                     </div>
                     <div className="flex items-center space-x-4">
@@ -60,12 +66,6 @@ const CalendarHeader = ({
                                     className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg font-medium transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     <i className="fas fa-cog mr-2"></i>Beállítások
-                                </button>
-                                <button
-                                    onClick={onProfileClick}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition duration-300 ease-in-out transform hover:scale-105"
-                                >
-                                    <i className="fas fa-user mr-2"></i>Profil
                                 </button>
                                 <button
                                     onClick={onFamilySelectorClick}

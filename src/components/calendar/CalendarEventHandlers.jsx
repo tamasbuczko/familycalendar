@@ -1,4 +1,4 @@
-import { addDoc, updateDoc, deleteDoc, doc, collection } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc, doc, collection, setDoc } from 'firebase/firestore';
 import { firebaseConfig } from '../../firebaseConfig.js';
 
 // Event handler függvények a CalendarApp számára
@@ -13,7 +13,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         resetChildLoginModal
     } = state;
 
-    // Esemény mentése
+    // Esemény mentése - konfliktus kezeléssel
     const handleSaveEvent = async (eventData) => {
         if (!db || !userFamilyId) {
             showTemporaryMessage("Hiba: Az adatok mentése nem lehetséges.");
@@ -21,14 +21,37 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
 
         try {
+            const currentTimestamp = new Date().toISOString();
+            const eventDataWithTimestamp = {
+                ...eventData,
+                lastModified: currentTimestamp,
+                lastModifiedBy: userId || 'offline'
+            };
+            
+            console.log("CalendarEventHandlers: Saving event with user:", userId, "timestamp:", currentTimestamp);
+
             const eventsColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`);
             
             if (state.editingEvent) {
+                // Esemény szerkesztése - konfliktus ellenőrzés
                 const eventDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, state.editingEvent.id);
-                await updateDoc(eventDocRef, eventData);
+                const eventDoc = await getDoc(eventDocRef);
+                
+                if (eventDoc.exists()) {
+                    const existingEvent = eventDoc.data();
+                    const existingTimestamp = existingEvent.lastModified;
+                    
+                    // Ha a meglévő esemény újabb, mint amit szerkesztünk, konfliktus
+                    if (existingTimestamp && state.editingEvent.lastModified && 
+                        new Date(existingTimestamp).getTime() > new Date(state.editingEvent.lastModified).getTime()) {
+                        showTemporaryMessage("Figyelem: Az eseményt valaki más már módosította. A legújabb verzió lesz mentve.");
+                    }
+                }
+                
+                await updateDoc(eventDocRef, eventDataWithTimestamp);
                 showTemporaryMessage("Esemény sikeresen frissítve!");
             } else {
-                await addDoc(eventsColRef, eventData);
+                await addDoc(eventsColRef, eventDataWithTimestamp);
                 showTemporaryMessage("Esemény sikeresen hozzáadva!");
             }
             
@@ -39,7 +62,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
     };
 
-    // Családtag mentése
+    // Családtag mentése - konfliktus kezeléssel
     const handleSaveFamilyMember = async () => {
         if (!db || !userFamilyId || !state.newFamilyMemberName.trim()) {
             showTemporaryMessage("Kérjük, adjon meg egy nevet a családtaghoz.");
@@ -47,13 +70,34 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
 
         try {
+            const currentTimestamp = new Date().toISOString();
+            const memberData = {
+                name: state.newFamilyMemberName.trim(),
+                lastModified: currentTimestamp,
+                lastModifiedBy: userId || 'offline'
+            };
+
             if (state.editingFamilyMember) {
+                // Családtag szerkesztése - konfliktus ellenőrzés
                 const memberDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members/${state.editingFamilyMember.id}`);
-                await updateDoc(memberDocRef, { name: state.newFamilyMemberName.trim() });
+                const memberDoc = await getDoc(memberDocRef);
+                
+                if (memberDoc.exists()) {
+                    const existingMember = memberDoc.data();
+                    const existingTimestamp = existingMember.lastModified;
+                    
+                    // Ha a meglévő családtag újabb, mint amit szerkesztünk, konfliktus
+                    if (existingTimestamp && state.editingFamilyMember.lastModified && 
+                        new Date(existingTimestamp).getTime() > new Date(state.editingFamilyMember.lastModified).getTime()) {
+                        showTemporaryMessage("Figyelem: A családtagot valaki más már módosította. A legújabb verzió lesz mentve.");
+                    }
+                }
+                
+                await updateDoc(memberDocRef, memberData);
                 showTemporaryMessage("Családtag sikeresen frissítve!");
             } else {
                 const familyMembersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
-                await addDoc(familyMembersColRef, { name: state.newFamilyMemberName.trim() });
+                await addDoc(familyMembersColRef, memberData);
                 showTemporaryMessage("Családtag sikeresen hozzáadva!");
             }
             
@@ -188,18 +232,13 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                 return;
             }
 
-            const expectedPin = `${child.name.substring(0, 3).toLowerCase()}${child.age || 0}`;
-            
-            if (loginData.pin !== expectedPin) {
-                showTemporaryMessage("Hibás PIN kód!");
-                return;
-            }
+            // PIN ellenőrzés eltávolítva - gyerek bejelentkezés PIN nélkül
 
             // Gyerek session létrehozása
             const childSession = {
                 childId: child.id,
                 childName: child.name,
-                childAge: child.age,
+                childBirthDate: child.birthDate,
                 childAvatar: child.avatar,
                 childRole: child.role,
                 familyId: userFamilyId,
@@ -207,8 +246,20 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                 isChild: true
             };
 
-            // Gyerek session mentése local storage-be
+            // Gyerek session mentése localStorage-ba (offline támogatás)
             localStorage.setItem('childSession', JSON.stringify(childSession));
+            
+            // Gyerek session mentése Firebase-be is (ha van internet)
+            if (userId) {
+                try {
+                    const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${userId}`);
+                    await setDoc(userDocRef, { childSession }, { merge: true });
+                    console.log("CalendarEventHandlers: Child session saved to Firebase");
+                } catch (firebaseError) {
+                    console.warn("CalendarEventHandlers: Could not save child session to Firebase:", firebaseError);
+                    // Nem kritikus hiba, localStorage-ben megvan
+                }
+            }
             
             // Gyerek session state frissítése
             setState.setChildSession(childSession);
@@ -227,21 +278,111 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
     };
 
-    // Szülői PIN ellenőrzés
+    // Szülői PIN ellenőrzés - hibrid megoldás konfliktus kezeléssel
     const handleParentPinVerification = async (enteredPin) => {
         setState.setParentPinLoading(true);
         try {
-            const savedPin = localStorage.getItem('parentPin');
+            // Először localStorage-ból olvassuk (offline támogatás)
+            let savedPin = localStorage.getItem('parentPin');
+            let localTimestamp = localStorage.getItem('parentPinTimestamp');
+            
+            // Ha van internet és felhasználó, szinkronizáljuk Firebase-szel konfliktus kezeléssel
+            if (state.userId) {
+                try {
+                    const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${state.userId}`);
+                    const userDoc = await getDoc(userDocRef);
+                    
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        const firebasePin = userData.parentPin;
+                        const firebaseTimestamp = userData.parentPinTimestamp;
+                        
+                        if (firebasePin && savedPin) {
+                            // Konfliktus: mindkét helyen van PIN
+                            if (firebaseTimestamp && localTimestamp) {
+                                const firebaseTime = new Date(firebaseTimestamp).getTime();
+                                const localTime = new Date(localTimestamp).getTime();
+                                
+                                if (firebaseTime > localTime) {
+                                    // Firebase-ben újabb - használjuk azt
+                                    savedPin = firebasePin;
+                                    localStorage.setItem('parentPin', firebasePin);
+                                    localStorage.setItem('parentPinTimestamp', firebaseTimestamp);
+                                    setState.setParentPin(firebasePin);
+                                    console.log("CalendarEventHandlers: Using newer Firebase PIN due to conflict");
+                                } else {
+                                    // localStorage-ben újabb - frissítsük Firebase-t
+                                    await setDoc(userDocRef, { 
+                                        parentPin: savedPin,
+                                        parentPinTimestamp: localTimestamp,
+                                        parentPinUserId: state.userId
+                                    }, { merge: true });
+                                    console.log("CalendarEventHandlers: Updated Firebase with newer local PIN");
+                                }
+                            } else {
+                                // Ha nincs timestamp, használjuk a Firebase-t
+                                savedPin = firebasePin;
+                                localStorage.setItem('parentPin', firebasePin);
+                                setState.setParentPin(firebasePin);
+                            }
+                        } else if (firebasePin && !savedPin) {
+                            // Csak Firebase-ben van PIN
+                            savedPin = firebasePin;
+                            localStorage.setItem('parentPin', firebasePin);
+                            localStorage.setItem('parentPinTimestamp', firebaseTimestamp || new Date().toISOString());
+                            setState.setParentPin(firebasePin);
+                        } else if (!firebasePin && savedPin) {
+                            // Csak localStorage-ben van PIN - szinkronizáljuk
+                            await setDoc(userDocRef, { 
+                                parentPin: savedPin,
+                                parentPinTimestamp: localTimestamp || new Date().toISOString(),
+                                parentPinUserId: state.userId
+                            }, { merge: true });
+                        }
+                    }
+                } catch (firebaseError) {
+                    console.warn("CalendarEventHandlers: Firebase sync failed, using localStorage:", firebaseError);
+                }
+            }
             
             if (!savedPin) {
-                showTemporaryMessage("Nincs beállítva szülői PIN! Kérjük, állítsa be a beállításokban.");
-                return false;
+                // Nincs beállítva szülői PIN - automatikus kilépés
+                showTemporaryMessage("Nincs beállítva szülői PIN! Automatikus kilépés...");
+                
+                // Child session törlése (localStorage + Firebase)
+                localStorage.removeItem('childSession');
+                setState.setChildSession(null);
+                
+                if (state.userId) {
+                    try {
+                        const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${state.userId}`);
+                        await setDoc(userDocRef, { childSession: null }, { merge: true });
+                    } catch (error) {
+                        console.warn("CalendarEventHandlers: Could not remove child session from Firebase:", error);
+                    }
+                }
+                
+                setState.setIsChildMode(false);
+                setState.setCurrentChild(null);
+                setState.setShowParentPinModal(false);
+                
+                return true;
             }
             
             if (enteredPin === savedPin) {
                 // PIN helyes - kilépés gyerek módból
                 localStorage.removeItem('childSession');
                 setState.setChildSession(null);
+                
+                if (state.userId) {
+                    try {
+                        const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${state.userId}`);
+                        await setDoc(userDocRef, { childSession: null }, { merge: true });
+                    } catch (error) {
+                        console.warn("CalendarEventHandlers: Could not remove child session from Firebase:", error);
+                    }
+                }
+                
                 showTemporaryMessage("Sikeresen kilépve gyerek módból.");
                 return true;
             } else {
@@ -257,22 +398,70 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
     };
 
-    // Szülői PIN mentése
+    // Szülői PIN mentése - hibrid megoldás konfliktus kezeléssel
     const handleSaveParentPin = async (newPin) => {
         console.log("CalendarEventHandlers: handleSaveParentPin called with PIN:", newPin);
         setState.setSettingsLoading(true);
         try {
-            if (newPin.trim()) {
-                // PIN mentése localStorage-ba
-                localStorage.setItem('parentPin', newPin.trim());
-                setState.setParentPin(newPin.trim());
-                console.log("CalendarEventHandlers: PIN saved to localStorage:", newPin.trim());
+            const pinValue = newPin.trim();
+            const currentTimestamp = new Date().toISOString();
+            
+            console.log("CalendarEventHandlers: Saving PIN with user:", userId, "timestamp:", currentTimestamp);
+            
+            if (pinValue) {
+                // PIN adatok timestamp-szel
+                const pinData = {
+                    value: pinValue,
+                    timestamp: currentTimestamp,
+                    userId: state.userId || 'offline'
+                };
+                
+                // PIN mentése localStorage-ba (offline támogatás)
+                localStorage.setItem('parentPin', pinValue);
+                localStorage.setItem('parentPinTimestamp', currentTimestamp);
+                setState.setParentPin(pinValue);
+                console.log("CalendarEventHandlers: PIN saved to localStorage:", pinValue);
+                
+                // PIN mentése Firebase-be is (ha van internet és felhasználó)
+                if (state.userId) {
+                    try {
+                        const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${state.userId}`);
+                        await setDoc(userDocRef, { 
+                            parentPin: pinValue,
+                            parentPinTimestamp: currentTimestamp,
+                            parentPinUserId: state.userId
+                        }, { merge: true });
+                        console.log("CalendarEventHandlers: PIN saved to Firebase with timestamp");
+                    } catch (firebaseError) {
+                        console.warn("CalendarEventHandlers: Could not save PIN to Firebase:", firebaseError);
+                        // Nem kritikus hiba, localStorage-ben megvan
+                    }
+                }
+                
                 showTemporaryMessage("Szülői PIN sikeresen mentve!");
             } else {
-                // PIN törlése
+                // PIN törlése localStorage-ból
                 localStorage.removeItem('parentPin');
+                localStorage.removeItem('parentPinTimestamp');
                 setState.setParentPin('');
                 console.log("CalendarEventHandlers: PIN removed from localStorage");
+                
+                // PIN törlése Firebase-ből is (ha van internet és felhasználó)
+                if (state.userId) {
+                    try {
+                        const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${state.userId}`);
+                        await setDoc(userDocRef, { 
+                            parentPin: null,
+                            parentPinTimestamp: null,
+                            parentPinUserId: null
+                        }, { merge: true });
+                        console.log("CalendarEventHandlers: PIN removed from Firebase");
+                    } catch (firebaseError) {
+                        console.warn("CalendarEventHandlers: Could not remove PIN from Firebase:", firebaseError);
+                        // Nem kritikus hiba, localStorage-ből törölve
+                    }
+                }
+                
                 showTemporaryMessage("Szülői PIN sikeresen törölve!");
             }
             
@@ -285,7 +474,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
     };
 
-    // Felhasználói profil mentése
+    // Felhasználói profil mentése - konfliktus kezeléssel
     const handleSaveUserProfile = async (profileData) => {
         console.log("CalendarEventHandlers: handleSaveUserProfile called with:", profileData);
         setState.setUserProfileLoading(true);
@@ -295,12 +484,29 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                 return;
             }
 
-            // Felhasználói dokumentum frissítése Firestore-ban
+            const currentTimestamp = new Date().toISOString();
             const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${userId}`);
+            
+            // Konfliktus ellenőrzés
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+                const existingUser = userDoc.data();
+                const existingTimestamp = existingUser.lastProfileModified;
+                
+                // Ha a meglévő profil újabb, mint amit szerkesztünk, konfliktus
+                if (existingTimestamp && profileData.lastProfileModified && 
+                    new Date(existingTimestamp).getTime() > new Date(profileData.lastProfileModified).getTime()) {
+                    showTemporaryMessage("Figyelem: A profilodat valaki más már módosította. A legújabb verzió lesz mentve.");
+                }
+            }
+
+            // Felhasználói dokumentum frissítése Firestore-ban
             await updateDoc(userDocRef, {
                 displayName: profileData.displayName,
                 email: profileData.email,
-                updatedAt: new Date().toISOString()
+                lastProfileModified: currentTimestamp,
+                lastProfileModifiedBy: userId,
+                updatedAt: currentTimestamp
             });
 
             // Frissítsük a state-et is
