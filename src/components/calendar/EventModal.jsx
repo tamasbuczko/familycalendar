@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal.jsx';
+import { useNotifications } from '../../hooks/useNotifications.js';
 
 // Esemény Modal komponens
-const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessage }) => {
+const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessage, userId }) => {
     const [name, setName] = useState(event?.name || '');
     const [date, setDate] = useState(event?.date || new Date().toISOString().split('T')[0]); // Egyszeri esemény dátuma
     const [time, setTime] = useState(event?.time || '09:00');
@@ -17,6 +18,15 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const [startDate, setStartDate] = useState(event?.startDate || new Date().toISOString().split('T')[0]); // Ismétlődő esemény kezdő dátuma
     const [endDate, setEndDate] = useState(event?.endDate || ''); // Ismétlődő esemény befejező dátuma (opcionális)
     const [recurrenceDays, setRecurrenceDays] = useState(event?.recurrenceDays || []); // Hét napjai (0=Vasárnap, 1=Hétfő...)
+
+    // Értesítési beállítások
+    const [remindersEnabled, setRemindersEnabled] = useState(event?.reminders?.enabled || true);
+    const [reminderTimes, setReminderTimes] = useState(event?.reminders?.times || [10, 30]); // percek az esemény előtt
+    const [reminderSound, setReminderSound] = useState(event?.reminders?.sound || true);
+    const [reminderVibration, setReminderVibration] = useState(event?.reminders?.vibration || true);
+
+    // Értesítések hook
+    const notifications = useNotifications(userId);
 
     const weekDaysOptions = [
         { name: 'Hétfő', value: 1 },
@@ -34,6 +44,51 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                 ? prev.filter(d => d !== dayIndex)
                 : [...prev, dayIndex].sort((a, b) => a - b)
         );
+    };
+
+    // Emlékeztető idők kezelése
+    const handleReminderTimeChange = (index, value) => {
+        const newTimes = [...reminderTimes];
+        newTimes[index] = parseInt(value) || 0;
+        setReminderTimes(newTimes.sort((a, b) => b - a)); // Csökkenő sorrendben
+    };
+
+    const addReminderTime = () => {
+        if (reminderTimes.length < 5) { // Maximum 5 emlékeztető
+            setReminderTimes([...reminderTimes, 15].sort((a, b) => b - a));
+        }
+    };
+
+    const removeReminderTime = (index) => {
+        if (reminderTimes.length > 1) { // Legalább 1 emlékeztető maradjon
+            setReminderTimes(reminderTimes.filter((_, i) => i !== index));
+        }
+    };
+
+    // Elérhető emlékeztető idők
+    const availableReminderTimes = [5, 10, 15, 30, 60, 120, 240, 480, 1440]; // percek
+
+    // Emlékeztető idő formázása
+    const formatReminderTime = (minutes) => {
+        if (minutes < 60) {
+            return `${minutes} perc`;
+        } else if (minutes < 1440) {
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            if (remainingMinutes === 0) {
+                return `${hours} óra`;
+            } else {
+                return `${hours} óra ${remainingMinutes} perc`;
+            }
+        } else {
+            const days = Math.floor(minutes / 1440);
+            const remainingHours = Math.floor((minutes % 1440) / 60);
+            if (remainingHours === 0) {
+                return `${days} nap`;
+            } else {
+                return `${days} nap ${remainingHours} óra`;
+            }
+        }
     };
 
     const handleSubmit = (e) => {
@@ -59,6 +114,12 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             notes, // Új mező
             status: event?.status || 'active', // Megőrizzük a meglévő státuszt vagy alapértelmezettként aktív
             exceptions: event?.exceptions || [], // Megőrizzük a meglévő kivételeket
+            reminders: {
+                enabled: remindersEnabled,
+                times: reminderTimes,
+                sound: reminderSound,
+                vibration: reminderVibration
+            }
         };
 
         if (recurrenceType === 'none') {
@@ -271,6 +332,142 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                         </select>
                     </div>
                 )}
+
+                {/* Emlékeztető beállítások */}
+                <div className="border-t pt-4">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">🔔 Emlékeztető beállítások</h3>
+                    
+                    <div className="space-y-4">
+                        {/* Emlékeztetők engedélyezése */}
+                        <div className="flex items-center">
+                            <input
+                                type="checkbox"
+                                id="remindersEnabled"
+                                checked={remindersEnabled}
+                                onChange={(e) => setRemindersEnabled(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="remindersEnabled" className="ml-2 block text-sm text-gray-700">
+                                Emlékeztetők engedélyezése
+                            </label>
+                        </div>
+
+                        {remindersEnabled && (
+                            <>
+                                {/* Emlékeztető idők */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Emlékeztetés az esemény előtt
+                                    </label>
+                                    <div className="space-y-2">
+                                        {reminderTimes.map((time, index) => (
+                                            <div key={index} className="flex items-center gap-2">
+                                                <select
+                                                    value={time}
+                                                    onChange={(e) => handleReminderTimeChange(index, e.target.value)}
+                                                    className="flex-1 p-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                                >
+                                                    {availableReminderTimes.map(availableTime => (
+                                                        <option key={availableTime} value={availableTime}>
+                                                            {formatReminderTime(availableTime)}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {reminderTimes.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeReminderTime(index)}
+                                                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Emlékeztető törlése"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {reminderTimes.length < 5 && (
+                                            <button
+                                                type="button"
+                                                onClick={addReminderTime}
+                                                className="flex items-center gap-2 px-3 py-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                                            >
+                                                ➕ Új emlékeztető hozzáadása
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Hang és rezgés beállítások */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            id="reminderSound"
+                                            checked={reminderSound}
+                                            onChange={(e) => setReminderSound(e.target.checked)}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <label htmlFor="reminderSound" className="ml-2 block text-sm text-gray-700">
+                                            🔊 Hang
+                                        </label>
+                                    </div>
+                                    <div className="flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            id="reminderVibration"
+                                            checked={reminderVibration}
+                                            onChange={(e) => setReminderVibration(e.target.checked)}
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <label htmlFor="reminderVibration" className="ml-2 block text-sm text-gray-700">
+                                            📳 Rezgés
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Értesítési státusz */}
+                                {notifications.isSupported && (
+                                    <div className="p-3 bg-blue-50 rounded-lg">
+                                        <div className="flex items-center gap-2 text-sm text-blue-800">
+                                            {notifications.permission === 'granted' ? (
+                                                <>
+                                                    ✅ Értesítések engedélyezve
+                                                    {notifications.token && (
+                                                        <span className="text-xs text-blue-600">
+                                                            (Token: {notifications.token.substring(0, 20)}...)
+                                                        </span>
+                                                    )}
+                                                </>
+                                            ) : notifications.permission === 'denied' ? (
+                                                <>
+                                                    ❌ Értesítések letiltva
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => notifications.requestPermission()}
+                                                        className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                                                    >
+                                                        Engedélyezés
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    ⚠️ Értesítések engedélyezése szükséges
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => notifications.requestPermission()}
+                                                        className="ml-2 px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                                                    >
+                                                        Engedélyezés
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </div>
                 <button
                     type="submit"
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"

@@ -1,5 +1,6 @@
 // Service Worker with FCM notifications support
-console.log('Service Worker loaded');
+// Version: 2.0 - Updated with full Firebase config including appId
+console.log('Service Worker loaded v2.0');
 
 // Firebase imports for Service Worker
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
@@ -9,7 +10,11 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 const firebaseConfig = {
   apiKey: "AIzaSyDN-W-HCfCSdVvEoLR0HLhYWsK_XfqKfD0",
   authDomain: "familyweekcalendar.firebaseapp.com",
-  projectId: "familyweekcalendar"
+  projectId: "familyweekcalendar",
+  storageBucket: "familyweekcalendar.firebasestorage.app",
+  messagingSenderId: "809984751394",
+  appId: "1:809984751394:web:fb31b9d260ee63121d177b",
+  measurementId: "G-8BZXHGQ6M1"
 };
 
 // Firebase inicializálás

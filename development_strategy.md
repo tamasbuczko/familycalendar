@@ -172,6 +172,32 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 - EmailJS vagy Firebase Functions
 - Firestore: notification_preferences
 
+---
+
+### **3.1.1 Időjárás Integráció (0.5 hét)** 🌤️ **ÚJ FUNKCIÓ**
+**Cél**: Időjárás megjelenítése és eső riasztások a szülők számára
+**Deliverable**: Időjárás widget és riasztási rendszer
+
+**Funkciók:**
+- [ ] **ÚJ**: Aktuális időjárás megjelenítése (hőmérséklet, időjárási viszonyok)
+- [ ] **ÚJ**: Öltözködési javaslatok gyerekeknek
+- [ ] **ÚJ**: Eső riasztások (értesítés, amikor esni kezd)
+- [ ] **ÚJ**: Időjárás beállítások (helyszín, riasztási típusok)
+- [ ] **ÚJ**: Automatikus helyszín felismerés (GPS) vagy manuális város kiválasztás
+- [ ] **ÚJ**: További időjárási riasztások (hó, szélsőséges hőmérsékletek)
+
+**Technológia:**
+- OpenWeatherMap API (ingyenes szint)
+- React Weather komponens (újrafelhasználható)
+- Firebase: weather_preferences collection
+- Naptár fejléc integráció
+- Push notifications időjárás változásokra
+
+**Használati esetek:**
+- Szülők tudják, milyen ruhába öltöztessék gyermekeiket
+- Eső riasztás esetén el tudják vinni a gyerekeket az esőben való hazasétálás helyett
+- Proaktív időjárás figyelés a családi programokhoz
+
 **Következő lépés**: 3.2 - Család Meghívás
 
 ---
@@ -343,6 +369,7 @@ Ez a dokumentum a fejlesztési folyamatot kis, egymásra épülő lépésekre bo
 
 ### **Phase 3 végén:**
 - [ ] Értesítések működnek
+- [ ] **ÚJ**: Időjárás widget és eső riasztások működnek
 - [ ] Meghívások működnek
 - [ ] 50 teszt felhasználó
 

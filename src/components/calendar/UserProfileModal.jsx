@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import Modal from '../ui/Modal.jsx';
 
-const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, loading, isChildMode = false, childSession = null }) => {
+const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, loading, isChildMode = false, childSession = null, familyData = null }) => {
     // Gyerek módban a gyerek adatait használjuk, szülő módban a szülő adatait
     const currentDisplayName = isChildMode ? (childSession?.childName || '') : (displayName || '');
     const currentEmail = isChildMode ? '' : (userEmail || '');
@@ -175,6 +175,7 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
                     </form>
                     </div>
                 )}
+
 
                 {/* Jelszó változtatás - csak szülő módban */}
                 {!isChildMode && (

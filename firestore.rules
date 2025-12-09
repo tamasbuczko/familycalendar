@@ -36,5 +36,10 @@ service cloud.firestore {
     match /artifacts/{projectId}/invitations/{invitationId} {
       allow read, write: if isAuthenticated();
     }
+    
+    // Notification preferences for users
+    match /notification_preferences/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
   }
 } 

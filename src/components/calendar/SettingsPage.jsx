@@ -1,11 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal.jsx';
+import NotificationSettings from './NotificationSettings.jsx';
+import UsageStatsModal from '../ui/UsageStatsModal.jsx';
+import FamilySettingsModal from './FamilySettingsModal.jsx';
+import { useUsageLimits } from '../../utils/usageLimits.js';
 
-const SettingsPage = ({ onClose, onSaveParentPin, currentParentPin, loading }) => {
+const SettingsPage = ({ onClose, onSaveParentPin, onSaveFamilyData, currentParentPin, loading, userId, familyData }) => {
     const [newPin, setNewPin] = useState('');
     const [confirmPin, setConfirmPin] = useState('');
     const [showCurrentPin, setShowCurrentPin] = useState(false);
     const [showClearConfirm, setShowClearConfirm] = useState(false);
+    const [activeTab, setActiveTab] = useState('general');
+    const [showUsageStats, setShowUsageStats] = useState(false);
+    const [showFamilySettings, setShowFamilySettings] = useState(false);
+    
+    // Használati korlátok kezelése
+    const { getUsageStats } = useUsageLimits(userId);
+    const [usageStats, setUsageStats] = useState(null);
+
+    // Frissítsük a PIN mezőket, ha a currentParentPin változik (Firebase szinkronizálás)
+    useEffect(() => {
+        // Ha a currentParentPin változik, töröljük a beírt mezőket
+        setNewPin('');
+        setConfirmPin('');
+        
+        // Ha a PIN változott, jelezzük a felhasználónak
+        if (currentParentPin) {
+            console.log("SettingsPage: PIN updated from Firebase:", currentParentPin);
+        }
+    }, [currentParentPin]);
+
+    // Használati statisztikák betöltése
+    useEffect(() => {
+        console.log("SettingsPage: useEffect triggered, userId:", userId);
+        if (userId) {
+            console.log("SettingsPage: Calling getUsageStats with userId:", userId);
+            const stats = getUsageStats();
+            console.log("SettingsPage: getUsageStats returned:", stats);
+            setUsageStats(stats);
+        } else {
+            console.log("SettingsPage: No userId, not loading stats");
+        }
+    }, [userId, getUsageStats]); // Added getUsageStats back to dependencies
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -56,7 +92,33 @@ const SettingsPage = ({ onClose, onSaveParentPin, currentParentPin, loading }) =
 
     return (
         <Modal onClose={handleCancel} title="Beállítások">
-            <div className="space-y-6">
+            {/* Tab navigáció */}
+            <div className="flex border-b mb-4">
+                <button
+                    onClick={() => setActiveTab('general')}
+                    className={`px-4 py-2 font-medium ${
+                        activeTab === 'general' 
+                            ? 'border-b-2 border-blue-500 text-blue-600' 
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <i className="fas fa-cog mr-2"></i>Általános
+                </button>
+                <button
+                    onClick={() => setActiveTab('notifications')}
+                    className={`px-4 py-2 font-medium ${
+                        activeTab === 'notifications' 
+                            ? 'border-b-2 border-blue-500 text-blue-600' 
+                            : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                >
+                    <i className="fas fa-bell mr-2"></i>Értesítések
+                </button>
+            </div>
+
+            {activeTab === 'general' && (
+                <div className="space-y-6">
+                {console.log("SettingsPage: Rendering general tab, usageStats:", usageStats)}
                 {/* Szülői PIN beállítás */}
                 <div className="bg-blue-50 p-4 rounded-lg">
                     <h3 className="text-lg font-semibold text-blue-800 mb-3 flex items-center">
@@ -64,7 +126,7 @@ const SettingsPage = ({ onClose, onSaveParentPin, currentParentPin, loading }) =
                         Szülői PIN Beállítás
                     </h3>
                     
-                    {currentParentPin && (
+                    {currentParentPin ? (
                         <div className="mb-4 p-3 bg-white rounded-lg border">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Jelenlegi PIN kód
@@ -84,6 +146,13 @@ const SettingsPage = ({ onClose, onSaveParentPin, currentParentPin, loading }) =
                                     {showCurrentPin ? <i className="fas fa-eye-slash"></i> : <i className="fas fa-eye"></i>}
                                 </button>
                             </div>
+                        </div>
+                    ) : (
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <p className="text-sm text-yellow-800">
+                                <i className="fas fa-exclamation-triangle mr-2"></i>
+                                Nincs beállított szülői PIN kód. Állíts be egyet a gyerek mód védelméhez.
+                            </p>
                         </div>
                     )}
 
@@ -159,6 +228,53 @@ const SettingsPage = ({ onClose, onSaveParentPin, currentParentPin, loading }) =
                     )}
                 </div>
 
+                {/* Család beállítások */}
+                <div className="bg-purple-50 p-4 rounded-lg">
+                    <h4 className="text-sm font-semibold text-purple-800 mb-2">
+                        <i className="fas fa-home mr-2"></i>
+                        Család beállítások
+                    </h4>
+                    <p className="text-sm text-purple-700 mb-3">
+                        Szerkeszd a család nevét, várost és egyéb adatokat.
+                    </p>
+                    <button
+                        onClick={() => setShowFamilySettings(true)}
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg font-medium transition duration-300 ease-in-out transform hover:scale-105"
+                    >
+                        <i className="fas fa-edit mr-2"></i>Család adatok szerkesztése
+                    </button>
+                </div>
+
+                {/* TEST DIV - Ez látható kell legyen */}
+                <div className="bg-red-100 p-4 rounded-lg border-2 border-red-500">
+                    <h4 className="text-lg font-bold text-red-800">TEST: Ez a div látható kell legyen!</h4>
+                    <p className="text-red-700">Ha ezt látod, akkor a rendering működik.</p>
+                </div>
+
+                {/* Használati statisztikák */}
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h4 className="text-lg font-semibold text-green-800 mb-2 flex items-center">
+                        <i className="fas fa-chart-bar mr-2"></i>
+                        Használati statisztikák
+                    </h4>
+                    <p className="text-sm text-green-700 mb-3">
+                        Nézd meg a napi használati korlátokat és a Firebase költségeket.
+                    </p>
+                    <p className="text-xs text-gray-500 mb-2">
+                        Debug: usageStats = {usageStats ? 'loaded' : 'null'}, userId = {userId}
+                    </p>
+                    <button
+                        onClick={() => {
+                            console.log("SettingsPage: Opening usage stats modal, stats:", usageStats);
+                            console.log("SettingsPage: showUsageStats will be set to true");
+                            setShowUsageStats(true);
+                        }}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white py-3 px-4 rounded-lg font-medium transition duration-300 ease-in-out transform hover:scale-105"
+                    >
+                        <i className="fas fa-chart-line mr-2"></i>Statisztikák megtekintése
+                    </button>
+                </div>
+
                 {/* Információ */}
                 <div className="bg-yellow-50 p-4 rounded-lg">
                     <h4 className="text-sm font-semibold text-yellow-800 mb-2">
@@ -173,6 +289,11 @@ const SettingsPage = ({ onClose, onSaveParentPin, currentParentPin, loading }) =
                     </ul>
                 </div>
             </div>
+            )}
+
+            {activeTab === 'notifications' && (
+                <NotificationSettings userId={userId} onClose={onClose} />
+            )}
 
             {/* Clear PIN Confirmation Modal */}
             {showClearConfirm && (
@@ -207,6 +328,46 @@ const SettingsPage = ({ onClose, onSaveParentPin, currentParentPin, loading }) =
                     </div>
                 </div>
             )}
+
+            {/* Használati statisztikák modal */}
+            {console.log("SettingsPage: Rendering UsageStatsModal with showUsageStats:", showUsageStats, "usageStats:", usageStats)}
+            <UsageStatsModal
+                isOpen={showUsageStats}
+                onClose={() => {
+                    console.log("SettingsPage: Closing usage stats modal");
+                    setShowUsageStats(false);
+                }}
+                usageStats={usageStats || {
+                    weather: {
+                        automatic: { used: 0, limit: 4, remaining: 4 },
+                        manual: { used: 0, limit: 10, remaining: 10 }
+                    },
+                    notifications: {
+                        total: { used: 0, limit: 50, remaining: 50 },
+                        eventReminders: { used: 0, limit: 3, remaining: 3 },
+                        weatherAlerts: { used: 0, limit: 2, remaining: 2 }
+                    },
+                    firestore: {
+                        reads: { used: 0, limit: 1000, remaining: 1000 },
+                        writes: { used: 0, limit: 100, remaining: 100 }
+                    },
+                    functions: { used: 0, limit: 200, remaining: 200 }
+                }}
+                userPlan="FREE"
+            />
+
+            {/* Család beállítások modal */}
+            <FamilySettingsModal
+                isOpen={showFamilySettings}
+                onClose={() => setShowFamilySettings(false)}
+                familyData={familyData}
+                onSaveFamilyData={(data) => {
+                    console.log('Family data to save:', data);
+                    onSaveFamilyData(data);
+                    setShowFamilySettings(false);
+                }}
+                loading={false}
+            />
         </Modal>
     );
 };

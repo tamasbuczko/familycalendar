@@ -1,21 +1,16 @@
 {
   "name": "Család Háló",
   "short_name": "Család Háló",
-  "description": "Családi naptár egyszerűen - szervezd a családod heti rutinjait, iskolai eseményeit és különóráit",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
-  "orientation": "portrait-primary",
-  "scope": "/",
-  "lang": "hu",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "/icon-192x192.svg",
       "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/svg+xml"
     }
-  ],
-  "categories": ["productivity", "family", "calendar"]
+  ]
 }

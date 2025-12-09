@@ -1,7 +1,11 @@
 import React from 'react';
 
 // Modal komponens
-const Modal = ({ children, onClose, title }) => {
+const Modal = ({ children, onClose, title, isOpen = true }) => {
+    if (!isOpen) {
+        return null;
+    }
+    
     return (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md relative overflow-y-auto max-h-[90vh]">

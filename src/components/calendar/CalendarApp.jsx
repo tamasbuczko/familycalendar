@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useFirebase } from '../../context/FirebaseContext.jsx';
+import { useNotifications } from '../../hooks/useNotifications.js';
 
 // Import the new smaller components
 import CalendarHeader from './CalendarHeader.jsx';
@@ -7,6 +8,7 @@ import FamilyMembersSection from './FamilyMembersSection.jsx';
 import CalendarControls from './CalendarControls.jsx';
 import ModalsContainer from './ModalsContainer.jsx';
 import MessageDisplay from './MessageDisplay.jsx';
+import WeatherWidget from './WeatherWidget.jsx';
 
 // Import the new hooks
 import { useCalendarState } from './CalendarStateManager.jsx';
@@ -19,6 +21,17 @@ const CalendarApp = ({ onLogout }) => {
     // State kezelés a hook-kal
     const state = useCalendarState(db, userId, userFamilyId);
     
+    // Értesítések kezelése
+    const notifications = useNotifications(userId);
+    
+    // Automatikus FCM token regisztráció bejelentkezéskor
+    useEffect(() => {
+        if (userId && notifications.isSupported && notifications.permission === 'default') {
+            // Automatikusan kérjük az értesítési engedélyeket
+            notifications.requestPermission();
+        }
+    }, [userId, notifications.isSupported, notifications.permission]);
+    
     // Event handler függvények a hook-kal
     const handlers = useCalendarEventHandlers(db, userId, userFamilyId, state, {
         setChildLoading: state.setChildLoading,
@@ -28,6 +41,7 @@ const CalendarApp = ({ onLogout }) => {
         setSettingsLoading: state.setSettingsLoading,
         setParentPin: state.setParentPin,
         setParentPinLoading: state.setParentPinLoading,
+        setFamilyData: state.setFamilyData,
         resetSettingsModal: state.resetSettingsModal,
         setUserProfileLoading: state.setUserProfileLoading,
         resetUserProfileModal: state.resetUserProfileModal,
@@ -146,6 +160,18 @@ const CalendarApp = ({ onLogout }) => {
                     onDeleteEvent={handleDeleteEventConfirm}
                     onStatusChange={handleStatusChangeConfirm}
                 />
+
+                {/* Időjárás widget */}
+                <div className="mt-6">
+                    <WeatherWidget 
+                        location="Budapest,HU"
+                        userId={userId}
+                        familyData={state.familyData}
+                        onWeatherUpdate={(weather) => {
+                            console.log('Weather updated:', weather);
+                        }}
+                    />
+                </div>
             </div>
 
             <ModalsContainer
@@ -156,6 +182,7 @@ const CalendarApp = ({ onLogout }) => {
                 onCloseEventModal={state.resetEventModal}
                 familyMembers={state.familyMembers}
                 showTemporaryMessage={state.showTemporaryMessage}
+                userId={userId}
                 
                 // Family member modal
                 showFamilyModal={state.showFamilyModal}
@@ -200,6 +227,7 @@ const CalendarApp = ({ onLogout }) => {
                 showSettingsModal={state.showSettingsModal}
                 onCloseSettingsModal={state.resetSettingsModal}
                 onSaveParentPin={handlers.handleSaveParentPin}
+                onSaveFamilyData={handlers.handleSaveFamilyData}
                 currentParentPin={state.parentPin}
                 settingsLoading={state.settingsLoading}
                 
@@ -210,6 +238,7 @@ const CalendarApp = ({ onLogout }) => {
                 userEmail={auth.currentUser?.email}
                 userDisplayName={state.userDisplayName || auth.currentUser?.displayName}
                 userProfileLoading={state.userProfileLoading}
+                familyData={state.familyData}
                 
                 // Child mode props
                 isChildMode={isChildMode}

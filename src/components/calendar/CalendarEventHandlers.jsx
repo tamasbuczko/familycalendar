@@ -1,4 +1,4 @@
-import { addDoc, updateDoc, deleteDoc, doc, collection, setDoc } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc, doc, collection, setDoc, getDoc } from 'firebase/firestore';
 import { firebaseConfig } from '../../firebaseConfig.js';
 
 // Event handler függvények a CalendarApp számára
@@ -63,16 +63,17 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
     };
 
     // Családtag mentése - konfliktus kezeléssel
-    const handleSaveFamilyMember = async () => {
-        if (!db || !userFamilyId || !state.newFamilyMemberName.trim()) {
+    const handleSaveFamilyMember = async (memberData) => {
+        if (!db || !userFamilyId || !memberData || !memberData.name || !memberData.name.trim()) {
             showTemporaryMessage("Kérjük, adjon meg egy nevet a családtaghoz.");
             return;
         }
 
         try {
             const currentTimestamp = new Date().toISOString();
-            const memberData = {
-                name: state.newFamilyMemberName.trim(),
+            const memberDataWithTimestamp = {
+                ...memberData,
+                name: memberData.name.trim(),
                 lastModified: currentTimestamp,
                 lastModifiedBy: userId || 'offline'
             };
@@ -93,11 +94,11 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                     }
                 }
                 
-                await updateDoc(memberDocRef, memberData);
+                await updateDoc(memberDocRef, memberDataWithTimestamp);
                 showTemporaryMessage("Családtag sikeresen frissítve!");
             } else {
                 const familyMembersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
-                await addDoc(familyMembersColRef, memberData);
+                await addDoc(familyMembersColRef, memberDataWithTimestamp);
                 showTemporaryMessage("Családtag sikeresen hozzáadva!");
             }
             
@@ -474,6 +475,45 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
     };
 
+    // Család adatok mentése
+    const handleSaveFamilyData = async (familyData) => {
+        console.log("CalendarEventHandlers: handleSaveFamilyData called with:", familyData);
+        try {
+            if (!db || !userId || !userFamilyId) {
+                showTemporaryMessage("Hiba: Az adatok mentése nem lehetséges.");
+                return;
+            }
+
+            const currentTimestamp = new Date().toISOString();
+            
+            // Család adatok mentése a families dokumentumba (ahonnan a CalendarStateManager betölti)
+            const familyDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}`);
+            await setDoc(familyDocRef, { 
+                name: familyData.name,
+                city: familyData.city,
+                childrenCount: familyData.childrenCount,
+                location: familyData.location,
+                lastModified: currentTimestamp,
+                lastModifiedBy: userId
+            }, { merge: true });
+            
+            // State frissítése a mentett adatokkal
+            setState.setFamilyData({
+                name: familyData.name,
+                city: familyData.city,
+                childrenCount: familyData.childrenCount,
+                location: familyData.location
+            });
+            
+            console.log("CalendarEventHandlers: Family data saved to Firebase and state updated");
+            showTemporaryMessage("Család adatok sikeresen mentve!");
+            
+        } catch (error) {
+            console.error("CalendarEventHandlers: Error saving family data:", error);
+            showTemporaryMessage("Hiba a család adatok mentése során.");
+        }
+    };
+
     // Felhasználói profil mentése - konfliktus kezeléssel
     const handleSaveUserProfile = async (profileData) => {
         console.log("CalendarEventHandlers: handleSaveUserProfile called with:", profileData);
@@ -534,6 +574,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         handleChildLogin,
         handleParentPinVerification,
         handleSaveParentPin,
+        handleSaveFamilyData,
         handleSaveUserProfile
     };
 };

@@ -3,32 +3,21 @@ import Modal from '../ui/Modal.jsx';
 
 const ChildLoginModal = ({ onClose, onChildLogin, familyMembers, loading }) => {
     const [selectedChild, setSelectedChild] = useState('');
-    const [childPin, setChildPin] = useState('');
 
     // Csak gyerek profilokat mutatunk
     const childMembers = familyMembers.filter(member => member.isChild);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (selectedChild && childPin.trim()) {
+        if (selectedChild) {
             onChildLogin({
-                childId: selectedChild,
-                pin: childPin.trim()
+                childId: selectedChild
             });
         }
     };
 
     const handleChildSelect = (childId) => {
         setSelectedChild(childId);
-        // Automatikus PIN generálás a gyerek neve alapján
-        const child = childMembers.find(c => c.id === childId);
-        if (child) {
-            // Egyszerű PIN: név első 3 betűje + életkor
-            const namePart = child.name.substring(0, 3).toLowerCase();
-            const agePart = child.age || 0;
-            const autoPin = `${namePart}${agePart}`;
-            setChildPin(autoPin);
-        }
     };
 
     if (childMembers.length === 0) {
@@ -75,7 +64,7 @@ const ChildLoginModal = ({ onClose, onChildLogin, familyMembers, loading }) => {
                                 <div className="text-3xl mb-2">{child.avatar}</div>
                                 <div className="font-medium text-gray-900">{child.name}</div>
                                 <div className="text-sm text-gray-500">
-                                    {child.age ? `${child.age} éves` : 'Életkor nincs megadva'}
+                                    {child.birthDate ? `${new Date(child.birthDate).toLocaleDateString('hu-HU')}` : 'Születési dátum nincs megadva'}
                                 </div>
                                 <div className="text-xs text-gray-400 capitalize">{child.role}</div>
                             </button>
@@ -84,48 +73,23 @@ const ChildLoginModal = ({ onClose, onChildLogin, familyMembers, loading }) => {
                 </div>
 
                 {selectedChild && (
-                    <div>
-                        <label htmlFor="childPin" className="block text-sm font-medium text-gray-700 mb-2">
-                            PIN kód
-                        </label>
-                        <input
-                            type="text"
-                            id="childPin"
-                            value={childPin}
-                            onChange={(e) => setChildPin(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="PIN kód"
-                            required
-                        />
-                        <p className="text-sm text-gray-500 mt-1">
-                            <i className="fas fa-info-circle mr-1"></i>
-                            A PIN automatikusan generálódik a név és életkor alapján
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center">
+                            <i className="fas fa-check-circle text-green-600 mr-2"></i>
+                            <span className="text-green-800 font-medium">
+                                Kiválasztott gyerek: {childMembers.find(c => c.id === selectedChild)?.name}
+                            </span>
+                        </div>
+                        <p className="text-sm text-green-600 mt-1">
+                            Kattints a "Bejelentkezés" gombra a gyerek módba való belépéshez
                         </p>
-                        
-                        {/* Tesztelő gomb */}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const child = childMembers.find(c => c.id === selectedChild);
-                                if (child) {
-                                    const namePart = child.name.substring(0, 3).toLowerCase();
-                                    const agePart = child.age || 0;
-                                    const testPin = `${namePart}${agePart}`;
-                                    setChildPin(testPin);
-                                    console.log("Teszt PIN generálva:", testPin);
-                                }
-                            }}
-                            className="mt-2 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-1 rounded text-xs"
-                        >
-                            🧪 Teszt PIN generálás
-                        </button>
                     </div>
                 )}
 
                 <div className="flex space-x-3">
                     <button
                         type="submit"
-                        disabled={loading || !selectedChild || !childPin.trim()}
+                        disabled={loading || !selectedChild}
                         className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 px-4 rounded-lg font-medium transition duration-300 ease-in-out transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? (

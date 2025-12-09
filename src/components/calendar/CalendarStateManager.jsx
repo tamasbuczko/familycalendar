@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, doc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, getDoc, setDoc } from 'firebase/firestore';
 import { firebaseConfig } from '../../firebaseConfig.js';
 
 // State kezelő hook a CalendarApp számára
@@ -29,16 +29,14 @@ export const useCalendarState = (db, userId, userFamilyId) => {
     const [childLoading, setChildLoading] = useState(false);
     const [childLoginLoading, setChildLoginLoading] = useState(false);
     
-    // Child session state
+    // Child session state - localStorage-ből betöltés offline támogatáshoz
     const [childSession, setChildSession] = useState(() => {
-        // Local storage-ből betöltés indításkor
         const savedSession = localStorage.getItem('childSession');
         return savedSession ? JSON.parse(savedSession) : null;
     });
 
-    // Parent PIN state
+    // Parent PIN state - localStorage-ből betöltés offline támogatáshoz
     const [parentPin, setParentPin] = useState(() => {
-        // Local storage-ből betöltés indításkor
         const savedPin = localStorage.getItem('parentPin');
         return savedPin || '';
     });
@@ -57,6 +55,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
     const [userDisplayName, setUserDisplayName] = useState('');
 
     // Child session betöltés indításkor
+    // Child session betöltése localStorage-ból (offline támogatás)
     useEffect(() => {
         const savedSession = localStorage.getItem('childSession');
         if (savedSession) {
@@ -89,61 +88,241 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         }
     }, [userId, db]);
 
+    // PIN valós idejű szinkronizálás Firebase-szel
+    useEffect(() => {
+        if (!userId || !db) {
+            // Offline mód: localStorage-ból betöltés
+            const savedPin = localStorage.getItem('parentPin');
+            if (savedPin) {
+                setParentPin(savedPin);
+            }
+            return;
+        }
+
+        const userDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/users/${userId}`);
+        const unsubscribe = onSnapshot(userDocRef, async (userDoc) => {
+            console.log("CalendarStateManager: PIN listener triggered for user:", userId);
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const firebasePin = userData.parentPin;
+                const firebaseTimestamp = userData.parentPinTimestamp;
+                const localPin = localStorage.getItem('parentPin');
+                const localTimestamp = localStorage.getItem('parentPinTimestamp');
+                
+                console.log("CalendarStateManager: PIN sync data:", {
+                    userId,
+                    firebasePin: firebasePin ? "***" : "null",
+                    firebaseTimestamp,
+                    localPin: localPin ? "***" : "null", 
+                    localTimestamp
+                });
+                
+                if (firebasePin && localPin) {
+                    // Konfliktus: mindkét helyen van PIN
+                    if (firebaseTimestamp && localTimestamp) {
+                        const firebaseTime = new Date(firebaseTimestamp).getTime();
+                        const localTime = new Date(localTimestamp).getTime();
+                        
+                        if (firebaseTime > localTime) {
+                            // Firebase-ben újabb - használjuk azt
+                            localStorage.setItem('parentPin', firebasePin);
+                            localStorage.setItem('parentPinTimestamp', firebaseTimestamp);
+                            setParentPin(firebasePin);
+                            console.log("CalendarStateManager: PIN updated from Firebase (newer version)");
+                        } else if (localTime > firebaseTime) {
+                            // localStorage-ben újabb - frissítsük Firebase-t
+                            try {
+                                await setDoc(userDocRef, { 
+                                    parentPin: localPin,
+                                    parentPinTimestamp: localTimestamp,
+                                    parentPinUserId: userId
+                                }, { merge: true });
+                                console.log("CalendarStateManager: Firebase updated with newer local PIN");
+                            } catch (error) {
+                                console.warn("CalendarStateManager: Could not update Firebase with local PIN:", error);
+                            }
+                        }
+                    } else {
+                        // Ha nincs timestamp, használjuk a Firebase-t
+                        localStorage.setItem('parentPin', firebasePin);
+                        localStorage.setItem('parentPinTimestamp', firebaseTimestamp || new Date().toISOString());
+                        setParentPin(firebasePin);
+                    }
+                } else if (firebasePin && !localPin) {
+                    // Csak Firebase-ben van PIN
+                    localStorage.setItem('parentPin', firebasePin);
+                    localStorage.setItem('parentPinTimestamp', firebaseTimestamp || new Date().toISOString());
+                    setParentPin(firebasePin);
+                    console.log("CalendarStateManager: PIN synced from Firebase to localStorage");
+                } else if (!firebasePin && localPin) {
+                    // Csak localStorage-ben van PIN - szinkronizáljuk
+                    try {
+                        await setDoc(userDocRef, { 
+                            parentPin: localPin,
+                            parentPinTimestamp: localTimestamp || new Date().toISOString(),
+                            parentPinUserId: userId
+                        }, { merge: true });
+                        console.log("CalendarStateManager: PIN synced from localStorage to Firebase");
+                    } catch (error) {
+                        console.warn("CalendarStateManager: Could not sync local PIN to Firebase:", error);
+                    }
+                } else if (!firebasePin && !localPin) {
+                    // Nincs PIN sehol
+                    setParentPin('');
+                }
+            }
+        }, (error) => {
+            console.error("CalendarStateManager: Error in PIN real-time listener:", error);
+            // Offline fallback: localStorage-ból betöltés
+            const savedPin = localStorage.getItem('parentPin');
+            if (savedPin) {
+                setParentPin(savedPin);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [userId, db]);
+
     // Utility függvények
     const showTemporaryMessage = (msg) => {
         setMessage(msg);
         setTimeout(() => setMessage(''), 3000);
     };
 
-    // Családtagok lekérése
+    // Családtagok lekérése - Firebase elsőbbség offline fallback-kel
     useEffect(() => {
-        if (!db || !userFamilyId) return;
+        if (!db || !userFamilyId) {
+            // Offline mód: localStorage-ból betöltés
+            const savedMembers = localStorage.getItem('familyMembers');
+            if (savedMembers) {
+                try {
+                    setFamilyMembers(JSON.parse(savedMembers));
+                } catch (error) {
+                    console.warn("CalendarStateManager: Error loading family members from localStorage:", error);
+                }
+            }
+            return;
+        }
 
         const familyMembersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
         const unsubscribe = onSnapshot(familyMembersColRef, (snapshot) => {
             const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setFamilyMembers(members);
+            
+            // Offline backup: localStorage-ba mentés
+            try {
+                localStorage.setItem('familyMembers', JSON.stringify(members));
+            } catch (error) {
+                console.warn("CalendarStateManager: Could not save family members to localStorage:", error);
+            }
         }, (error) => {
             console.error("CalendarStateManager: Hiba a családtagok lekérésekor:", error);
-            setMessage("Hiba a családtagok betöltésekor.");
+            setMessage("Hiba a családtagok betöltésekor. Offline módban folytatás...");
+            
+            // Offline fallback: localStorage-ból betöltés
+            const savedMembers = localStorage.getItem('familyMembers');
+            if (savedMembers) {
+                try {
+                    setFamilyMembers(JSON.parse(savedMembers));
+                } catch (parseError) {
+                    console.warn("CalendarStateManager: Error parsing saved family members:", parseError);
+                }
+            }
         });
 
         return () => unsubscribe();
     }, [db, userFamilyId]);
 
-    // Események lekérése
+    // Események lekérése - Firebase elsőbbség offline fallback-kel
     useEffect(() => {
-        if (!db || !userFamilyId) return;
+        if (!db || !userFamilyId) {
+            // Offline mód: localStorage-ból betöltés
+            const savedEvents = localStorage.getItem('events');
+            if (savedEvents) {
+                try {
+                    setEvents(JSON.parse(savedEvents));
+                } catch (error) {
+                    console.warn("CalendarStateManager: Error loading events from localStorage:", error);
+                }
+            }
+            return;
+        }
 
         const eventsColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`);
         const unsubscribe = onSnapshot(eventsColRef, (snapshot) => {
             const fetchedEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             setEvents(fetchedEvents);
+            
+            // Offline backup: localStorage-ba mentés
+            try {
+                localStorage.setItem('events', JSON.stringify(fetchedEvents));
+            } catch (error) {
+                console.warn("CalendarStateManager: Could not save events to localStorage:", error);
+            }
         }, (error) => {
             console.error("CalendarStateManager: Hiba az események lekérésekor:", error);
-            setMessage("Hiba az események betöltésekor.");
+            setMessage("Hiba az események betöltésekor. Offline módban folytatás...");
+            
+            // Offline fallback: localStorage-ból betöltés
+            const savedEvents = localStorage.getItem('events');
+            if (savedEvents) {
+                try {
+                    setEvents(JSON.parse(savedEvents));
+                } catch (parseError) {
+                    console.warn("CalendarStateManager: Error parsing saved events:", parseError);
+                }
+            }
         });
 
         return () => unsubscribe();
     }, [db, userFamilyId]);
 
-    // Család adatok lekérése
+    // Család adatok lekérése - Firebase elsőbbség offline fallback-kel
     useEffect(() => {
         if (!db || !userFamilyId) {
-            setFamilyData(null);
+            // Offline mód: localStorage-ból betöltés
+            const savedFamilyData = localStorage.getItem('familyData');
+            if (savedFamilyData) {
+                try {
+                    setFamilyData(JSON.parse(savedFamilyData));
+                } catch (error) {
+                    console.warn("CalendarStateManager: Error loading family data from localStorage:", error);
+                }
+            } else {
+                setFamilyData(null);
+            }
             return;
         }
 
         const familyDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}`);
         const unsubscribe = onSnapshot(familyDocRef, (docSnap) => {
             if (docSnap.exists()) {
-                setFamilyData({ id: docSnap.id, ...docSnap.data() });
+                const familyData = { id: docSnap.id, ...docSnap.data() };
+                setFamilyData(familyData);
+                
+                // Offline backup: localStorage-ba mentés
+                try {
+                    localStorage.setItem('familyData', JSON.stringify(familyData));
+                } catch (error) {
+                    console.warn("CalendarStateManager: Could not save family data to localStorage:", error);
+                }
             } else {
                 setFamilyData(null);
+                localStorage.removeItem('familyData');
             }
         }, (error) => {
             console.error("CalendarStateManager: Hiba a család adatainak lekérésekor:", error);
-            setMessage("Hiba a család adatainak betöltésekor.");
+            setMessage("Hiba a család adatainak betöltésekor. Offline módban folytatás...");
+            
+            // Offline fallback: localStorage-ból betöltés
+            const savedFamilyData = localStorage.getItem('familyData');
+            if (savedFamilyData) {
+                try {
+                    setFamilyData(JSON.parse(savedFamilyData));
+                } catch (parseError) {
+                    console.warn("CalendarStateManager: Error parsing saved family data:", parseError);
+                }
+            }
         });
 
         return () => unsubscribe();
@@ -251,6 +430,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setEditingFamilyMember,
         setFamilyMemberType,
         setFamilyMemberLoading,
+        setFamilyData,
         setConfirmAction,
         setConfirmMessage,
         setInviteLoading,

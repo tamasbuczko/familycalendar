@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import EventModal from './EventModal.jsx';
 import FamilyMemberEditModal from './FamilyMemberEditModal.jsx';
 import ConfirmModal from '../ui/ConfirmModal.jsx';
 import InviteModal from './InviteModal.jsx';
 import ChildLoginModal from './ChildLoginModal.jsx';
 import ParentPinModal from './ParentPinModal.jsx';
-import SettingsPage from './SettingsPage.jsx';
+import SettingsScreen from './SettingsScreen.jsx';
 import UserProfileModal from './UserProfileModal.jsx';
 
 const ModalsContainer = ({
@@ -16,6 +16,7 @@ const ModalsContainer = ({
     onCloseEventModal,
     familyMembers,
     showTemporaryMessage,
+    userId,
     
     // Family member modal
     showFamilyModal,
@@ -55,6 +56,7 @@ const ModalsContainer = ({
     showSettingsModal,
     onCloseSettingsModal,
     onSaveParentPin,
+    onSaveFamilyData,
     currentParentPin,
     settingsLoading,
     
@@ -68,8 +70,27 @@ const ModalsContainer = ({
     
     // Child mode props
     isChildMode,
-    childSession
+    childSession,
+    
+    // Family data
+    familyData
 }) => {
+    // Body scroll kezelése modal megnyitáskor
+    useEffect(() => {
+        if (showSettingsModal) {
+            // Modal megnyitáskor letiltjuk a body scroll-t
+            document.body.style.overflow = 'hidden';
+        } else {
+            // Modal bezáráskor visszaállítjuk a body scroll-t
+            document.body.style.overflow = 'unset';
+        }
+
+        // Cleanup function
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [showSettingsModal]);
+
     return (
         <>
             {/* Event Modal */}
@@ -80,6 +101,7 @@ const ModalsContainer = ({
                     onClose={onCloseEventModal}
                     familyMembers={familyMembers}
                     showTemporaryMessage={showTemporaryMessage}
+                    userId={userId}
                 />
             )}
 
@@ -133,14 +155,21 @@ const ModalsContainer = ({
                 />
             )}
 
-            {/* Settings Modal */}
+            {/* Settings Screen */}
             {showSettingsModal && (
-                <SettingsPage
-                    onClose={onCloseSettingsModal}
-                    onSaveParentPin={onSaveParentPin}
-                    currentParentPin={currentParentPin}
-                    loading={settingsLoading}
-                />
+                <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-50" style={{overflow: 'hidden'}}>
+                    <div className="h-full overflow-y-auto">
+                        <SettingsScreen
+                        onClose={onCloseSettingsModal}
+                        onSaveParentPin={onSaveParentPin}
+                        onSaveFamilyData={onSaveFamilyData}
+                        currentParentPin={currentParentPin}
+                        loading={settingsLoading}
+                        userId={userId}
+                        familyData={familyData}
+                        />
+                    </div>
+                </div>
             )}
 
             {/* User Profile Modal */}
@@ -160,6 +189,7 @@ const ModalsContainer = ({
                     loading={userProfileLoading}
                     isChildMode={isChildMode}
                     childSession={childSession}
+                    familyData={familyData}
                 />
                 );
             })()}
