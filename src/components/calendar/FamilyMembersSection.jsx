@@ -34,7 +34,7 @@ const FamilyMembersSection = ({
                             }}
                             className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-md text-xs font-medium transition duration-300 ease-in-out transform hover:scale-105"
                         >
-                            <i className="fas fa-baby mr-1"></i>Gyerek profil
+                            <i className="fas fa-baby mr-1"></i>Gyerekek
                         </button>
                     </div>
                 )}

@@ -151,22 +151,34 @@ export const getDefaultNotificationPreferences = () => ({
  */
 export const loadNotificationPreferences = async (userId) => {
   try {
+    if (!userId) {
+      return getDefaultNotificationPreferences();
+    }
+    
     const userDocRef = doc(db, 'notification_preferences', userId);
     const userDoc = await getDoc(userDocRef);
     
     if (userDoc.exists()) {
-      return userDoc.data().preferences;
+      const data = userDoc.data();
+      // Ha van preferences, használjuk azt, különben alapértelmezett
+      return data.preferences || getDefaultNotificationPreferences();
     } else {
       // Új felhasználó - alapértelmezett beállítások
       const defaultPreferences = getDefaultNotificationPreferences();
-      await setDoc(userDocRef, {
-        preferences: defaultPreferences,
-        lastUpdated: new Date().toISOString()
-      });
+      try {
+        await setDoc(userDocRef, {
+          preferences: defaultPreferences,
+          lastUpdated: new Date().toISOString()
+        });
+      } catch (saveError) {
+        // Ha nem sikerül menteni, csak loggoljuk, de adjuk vissza az alapértelmezett beállításokat
+        console.warn('Could not save default preferences to Firestore:', saveError);
+      }
       return defaultPreferences;
     }
   } catch (error) {
     console.error('Error loading notification preferences:', error);
+    // Hiba esetén mindig adjunk vissza alapértelmezett beállításokat
     return getDefaultNotificationPreferences();
   }
 };

@@ -290,7 +290,7 @@ const SettingsScreen = ({ onClose, onSaveParentPin, onSaveFamilyData, currentPar
                         {/* Értesítési beállítások */}
                         {activeTab === 'notifications' && (
                             <div className="space-y-6">
-                                <NotificationSettings />
+                                <NotificationSettings userId={userId} onClose={onClose} />
                             </div>
                         )}
 

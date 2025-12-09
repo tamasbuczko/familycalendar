@@ -61,14 +61,20 @@ export const useNotifications = (userId) => {
 
   // Értesítési beállítások betöltése
   const loadPreferences = async () => {
-    if (!userId) return;
+    if (!userId) {
+      // Ha nincs userId, használjuk az alapértelmezett beállításokat
+      setPreferences(getDefaultNotificationPreferences());
+      return;
+    }
     
     setIsLoading(true);
     try {
       const prefs = await loadNotificationPreferences(userId);
-      setPreferences(prefs);
+      // Ha a prefs null vagy undefined, használjuk az alapértelmezett beállításokat
+      setPreferences(prefs || getDefaultNotificationPreferences());
     } catch (error) {
       console.error('Failed to load preferences:', error);
+      // Hiba esetén is beállítjuk az alapértelmezett beállításokat
       setPreferences(getDefaultNotificationPreferences());
     } finally {
       setIsLoading(false);
