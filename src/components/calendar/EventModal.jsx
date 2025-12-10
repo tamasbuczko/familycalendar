@@ -3,7 +3,7 @@ import Modal from '../ui/Modal.jsx';
 import { useNotifications } from '../../hooks/useNotifications.js';
 
 // Esemény Modal komponens
-const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessage, userId, onStatusChange }) => {
+const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessage, userId, onStatusChange, userDisplayName, currentUserMember }) => {
     const [name, setName] = useState(event?.name || '');
     const [date, setDate] = useState(event?.date || new Date().toISOString().split('T')[0]); // Egyszeri esemény dátuma
     const [time, setTime] = useState(event?.time || '09:00');
@@ -390,11 +390,33 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                         className="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     >
                         <option value="">Válasszon családtagot</option>
-                        {familyMembers.map(member => (
-                            <option key={member.id} value={member.id}>
-                                {member.avatar ? `${member.avatar} ${member.name}` : member.name}
-                            </option>
-                        ))}
+                        {(() => {
+                            // Kiterjesztett lista: tartalmazza a családtagokat ÉS a családfőt is
+                            const allMembers = [...familyMembers];
+                            
+                            // Ha a családfőnek van member rekordja, hozzáadjuk
+                            if (currentUserMember) {
+                                // Ha már benne van (nem kellene, de biztos, ami biztos), ne adjuk hozzá újra
+                                if (!allMembers.find(m => m.id === currentUserMember.id)) {
+                                    allMembers.push(currentUserMember);
+                                }
+                            } else if (userId && userDisplayName) {
+                                // Ha nincs member rekordja, de van userId és displayName, hozzáadjuk virtuális memberként
+                                allMembers.push({
+                                    id: `user_${userId}`, // Virtuális ID
+                                    name: userDisplayName,
+                                    userId: userId,
+                                    avatar: '👤',
+                                    color: '#3B82F6'
+                                });
+                            }
+                            
+                            return allMembers.map(member => (
+                                <option key={member.id} value={member.id}>
+                                    {member.avatar ? `${member.avatar} ${member.name}` : member.name}
+                                </option>
+                            ));
+                        })()}
                     </select>
                     {assignedTo && (
                         <div className="mt-2 flex items-center">

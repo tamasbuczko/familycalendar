@@ -189,6 +189,8 @@ const CalendarApp = ({ onLogout }) => {
                     onEditEvent={handleEditEvent}
                     onDeleteEvent={handleDeleteEventConfirm}
                     onStatusChange={handleStatusChangeConfirm}
+                    userId={userId}
+                    userDisplayName={state.userDisplayName || auth.currentUser?.displayName}
                 />
 
                 {/* Időjárás widget */}
@@ -318,6 +320,8 @@ const CalendarApp = ({ onLogout }) => {
                 userDisplayName={state.userDisplayName || auth.currentUser?.displayName}
                 userProfileLoading={state.userProfileLoading}
                 familyData={state.familyData}
+                currentUserMember={state.currentUserMember} // Jelenlegi felhasználó member rekordja
+                userId={userId}
                 
                 // Child mode props
                 isChildMode={isChildMode}

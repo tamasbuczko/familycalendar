@@ -822,7 +822,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         console.log("CalendarEventHandlers: handleSaveUserProfile called with:", profileData);
         setState.setUserProfileLoading(true);
         try {
-            if (!db || !userId) {
+            if (!db || !userId || !userFamilyId) {
                 showTemporaryMessage("Hiba: Az adatok mentése nem lehetséges.");
                 return;
             }
@@ -851,6 +851,39 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                 lastProfileModifiedBy: userId,
                 updatedAt: currentTimestamp
             });
+
+            // Member rekord frissítése vagy létrehozása
+            if (profileData.memberId) {
+                // Ha van memberId, akkor frissítjük a meglévő member rekordot
+                const memberDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members/${profileData.memberId}`);
+                await updateDoc(memberDocRef, {
+                    name: profileData.displayName,
+                    email: profileData.email || null,
+                    birthDate: profileData.birthDate || null,
+                    avatar: profileData.avatar || '👤',
+                    color: profileData.color || '#3B82F6',
+                    role: profileData.role || 'adult',
+                    userId: userId, // Biztosítjuk, hogy a userId benne legyen
+                    updatedAt: currentTimestamp
+                });
+                console.log("CalendarEventHandlers: Member record updated:", profileData.memberId);
+            } else {
+                // Ha nincs memberId, akkor létrehozunk egy új member rekordot
+                const membersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
+                await addDoc(membersColRef, {
+                    name: profileData.displayName,
+                    email: profileData.email || null,
+                    birthDate: profileData.birthDate || null,
+                    avatar: profileData.avatar || '👤',
+                    color: profileData.color || '#3B82F6',
+                    role: profileData.role || 'adult',
+                    userId: userId,
+                    isChild: false,
+                    createdAt: currentTimestamp,
+                    createdBy: userId
+                });
+                console.log("CalendarEventHandlers: New member record created for user:", userId);
+            }
 
             // Frissítsük a state-et is
             setState.setUserDisplayName(profileData.displayName);

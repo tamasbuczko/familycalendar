@@ -1,6 +1,6 @@
 import React from 'react';
 
-const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange }) => {
+const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange, userId, userDisplayName }) => {
     // Órák generálása (0-23)
     const hours = Array.from({ length: 24 }, (_, i) => i);
 
@@ -133,12 +133,22 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                             )}
                                                             <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
                                                                 {event.showAvatar !== false && (() => {
+                                                                    // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor alapértelmezett avatart használunk
+                                                                    if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
+                                                                        return <span className="text-base flex-shrink-0">👤</span>;
+                                                                    }
                                                                     const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                                     return assignedMember?.avatar ? (
                                                                         <span className="text-base flex-shrink-0">{assignedMember.avatar}</span>
                                                                     ) : null;
                                                                 })()}
-                                                                <span>{familyMembers.find(m => m.id === event.assignedTo)?.name || 'Nincs hozzárendelve'}</span>
+                                                                <span>{(() => {
+                                                                    // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor a userDisplayName-t használjuk
+                                                                    if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
+                                                                        return userDisplayName || 'Nincs hozzárendelve';
+                                                                    }
+                                                                    return familyMembers.find(m => m.id === event.assignedTo)?.name || 'Nincs hozzárendelve';
+                                                                })()}</span>
                                                             </p>
                                                         </div>
                                                                {event.status === 'cancelled' && event.cancellationReason && (

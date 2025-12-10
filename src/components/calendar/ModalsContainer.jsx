@@ -69,6 +69,7 @@ const ModalsContainer = ({
     userEmail,
     userDisplayName,
     userProfileLoading,
+    currentUserMember,
     
     // Child mode props
     isChildMode,
@@ -105,6 +106,8 @@ const ModalsContainer = ({
                     showTemporaryMessage={showTemporaryMessage}
                     userId={userId}
                     onStatusChange={onStatusChange}
+                    userDisplayName={userDisplayName}
+                    currentUserMember={currentUserMember}
                 />
             )}
 
@@ -182,7 +185,9 @@ const ModalsContainer = ({
                     isChildMode,
                     childSession,
                     userEmail,
-                    userDisplayName
+                    userDisplayName,
+                    currentUserMember,
+                    userId
                 });
                 return (
                 <UserProfileModal
@@ -194,6 +199,8 @@ const ModalsContainer = ({
                     isChildMode={isChildMode}
                     childSession={childSession}
                     familyData={familyData}
+                    currentUserMember={currentUserMember}
+                    userId={userId}
                 />
                 );
             })()}

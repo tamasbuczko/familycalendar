@@ -11,7 +11,9 @@ const CalendarControls = ({
     onAddEvent,
     onEditEvent,
     onDeleteEvent,
-    onStatusChange
+    onStatusChange,
+    userId,
+    userDisplayName
 }) => {
     return (
         <div className={`w-full ${currentView === 'day' ? 'max-w-4xl mx-auto' : ''}`}>
@@ -26,6 +28,8 @@ const CalendarControls = ({
                 onEditEvent={onEditEvent}
                 onDeleteEvent={onDeleteEvent}
                 onStatusChange={onStatusChange}
+                userId={userId}
+                userDisplayName={userDisplayName}
             />
         </div>
     );

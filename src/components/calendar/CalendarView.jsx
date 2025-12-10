@@ -12,7 +12,9 @@ const CalendarView = ({
     onAddEvent,
     onEditEvent,
     onDeleteEvent,
-    onStatusChange
+    onStatusChange,
+    userId,
+    userDisplayName
 }) => {
     const { getDaysForView, getEventsForDisplay, navigateDays } = useCalendarUtils();
     const daysToDisplay = getDaysForView(currentDate, currentView);
@@ -80,6 +82,8 @@ const CalendarView = ({
                     onEditEvent={onEditEvent}
                     onDeleteEvent={onDeleteEvent}
                     onStatusChange={onStatusChange}
+                    userId={userId}
+                    userDisplayName={userDisplayName}
                 />
 
                 <button
@@ -185,13 +189,23 @@ const CalendarView = ({
                                             )}
                                             <p className="text-sm">{event.time}{event.endTime && ` - ${event.endTime}`} {event.location && `- ${event.location}`}</p>
                                             <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
-                                                {event.showAvatar !== false && (() => {
-                                                    const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
-                                                    return assignedMember?.avatar ? (
-                                                        <span className="text-base flex-shrink-0">{assignedMember.avatar}</span>
-                                                    ) : null;
-                                                })()}
-                                                <span>{familyMembers.find(m => m.id === event.assignedTo)?.name || 'Nincs hozzárendelve'}</span>
+                                            {event.showAvatar !== false && (() => {
+                                                // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor alapértelmezett avatart használunk
+                                                if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
+                                                    return <span className="text-base flex-shrink-0">👤</span>;
+                                                }
+                                                const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
+                                                return assignedMember?.avatar ? (
+                                                    <span className="text-base flex-shrink-0">{assignedMember.avatar}</span>
+                                                ) : null;
+                                            })()}
+                                                <span>{(() => {
+                                                    // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor a userDisplayName-t használjuk
+                                                    if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
+                                                        return userDisplayName || 'Nincs hozzárendelve';
+                                                    }
+                                                    return familyMembers.find(m => m.id === event.assignedTo)?.name || 'Nincs hozzárendelve';
+                                                })()}</span>
                                             </p>
                                         </div>
                                         {event.status === 'cancelled' && event.cancellationReason && (

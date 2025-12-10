@@ -5,7 +5,8 @@ import { firebaseConfig } from '../../firebaseConfig.js';
 // State kezelő hook a CalendarApp számára
 export const useCalendarState = (db, userId, userFamilyId) => {
     // Alapvető state változók
-    const [familyMembers, setFamilyMembers] = useState([]);
+    const [familyMembers, setFamilyMembers] = useState([]); // Szűrt lista (családfő nélkül)
+    const [currentUserMember, setCurrentUserMember] = useState(null); // Jelenlegi felhasználó member rekordja
     const [events, setEvents] = useState([]);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [currentView, setCurrentView] = useState('week');
@@ -197,7 +198,16 @@ export const useCalendarState = (db, userId, userFamilyId) => {
             const savedMembers = localStorage.getItem('familyMembers');
             if (savedMembers) {
                 try {
-                    setFamilyMembers(JSON.parse(savedMembers));
+                    const members = JSON.parse(savedMembers);
+                    // Jelenlegi felhasználó member rekordjának kinyerése
+                    const userMember = userId ? members.find(m => m.userId === userId) : null;
+                    setCurrentUserMember(userMember || null);
+                    
+                    // Kizárjuk a jelenlegi felhasználót (családfő) a családtagok listájából
+                    const filteredMembers = members.filter(member => {
+                        return !member.userId || member.userId !== userId;
+                    });
+                    setFamilyMembers(filteredMembers);
                 } catch (error) {
                     console.warn("CalendarStateManager: Error loading family members from localStorage:", error);
                 }
@@ -207,8 +217,19 @@ export const useCalendarState = (db, userId, userFamilyId) => {
 
         const familyMembersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
         const unsubscribe = onSnapshot(familyMembersColRef, (snapshot) => {
-            const members = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setFamilyMembers(members);
+            const allMembers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            
+            // Jelenlegi felhasználó member rekordjának kinyerése
+            const userMember = userId ? allMembers.find(m => m.userId === userId) : null;
+            setCurrentUserMember(userMember || null);
+            
+            // Szűrt lista (családfő nélkül) - megjelenítéshez
+            const filteredMembers = allMembers.filter(member => {
+                // Kizárjuk a jelenlegi felhasználót (családfő) a családtagok listájából
+                // mert ő már a jobb felső sarokban van megjelenítve
+                return !member.userId || member.userId !== userId;
+            });
+            setFamilyMembers(filteredMembers);
             
             // Offline backup: localStorage-ba mentés
             try {
@@ -224,7 +245,16 @@ export const useCalendarState = (db, userId, userFamilyId) => {
             const savedMembers = localStorage.getItem('familyMembers');
             if (savedMembers) {
                 try {
-                    setFamilyMembers(JSON.parse(savedMembers));
+                    const members = JSON.parse(savedMembers);
+                    // Jelenlegi felhasználó member rekordjának kinyerése
+                    const userMember = userId ? members.find(m => m.userId === userId) : null;
+                    setCurrentUserMember(userMember || null);
+                    
+                    // Kizárjuk a jelenlegi felhasználót (családfő) a családtagok listájából
+                    const filteredMembers = members.filter(member => {
+                        return !member.userId || member.userId !== userId;
+                    });
+                    setFamilyMembers(filteredMembers);
                 } catch (parseError) {
                     console.warn("CalendarStateManager: Error parsing saved family members:", parseError);
                 }
@@ -388,6 +418,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
     return {
         // State változók
         familyMembers,
+        currentUserMember, // Jelenlegi felhasználó member rekordja
         events,
         currentDate,
         setCurrentDate,
