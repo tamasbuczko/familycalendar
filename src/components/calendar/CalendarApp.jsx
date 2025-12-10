@@ -106,15 +106,45 @@ const CalendarApp = ({ onLogout }) => {
     };
 
     const handleDeleteEventConfirm = (event) => {
-        state.setConfirmAction(() => () => handlers.handleDeleteEvent(event));
+        console.log("CalendarApp: handleDeleteEventConfirm called", { eventName: event.name });
+        // Először bezárjuk a modalt, ha van nyitva
+        state.resetConfirmModal();
+        state.setConfirmAction(() => () => {
+            console.log("CalendarApp: confirmAction called for delete");
+            handlers.handleDeleteEvent(event);
+        });
         state.setConfirmMessage(`Biztosan törölni szeretné az eseményt: "${event.name}"?`);
+        state.setShowCancellationReason(false);
         state.setShowConfirmModal(true);
+        console.log("CalendarApp: Delete confirm modal should be shown now");
     };
 
     const handleStatusChangeConfirm = (event, newStatus) => {
-        state.setConfirmAction(() => () => handlers.handleChangeEventStatus(event, newStatus));
-        state.setConfirmMessage(`Biztosan ${newStatus === 'cancelled' ? 'lemondja' : 'aktívvá teszi'} az eseményt: "${event.name}"?`);
+        console.log("CalendarApp: handleStatusChangeConfirm called", { eventName: event.name, newStatus });
+        
+        // Először bezárjuk a modalt, ha van nyitva
+        state.resetConfirmModal();
+        
+        // Ha lemondás, akkor a cancellationReason-t is kérjük
+        if (newStatus === 'cancelled') {
+            // Tároljuk az event-et, hogy az onConfirm-ben elérhető legyen
+            state.setEditingEvent(event);
+            // Dummy confirmAction, mert az onConfirm-ben közvetlenül hívjuk a handleSaveEvent-et
+            state.setConfirmAction(() => () => {
+                console.log("CalendarApp: confirmAction dummy function called");
+            });
+            state.setConfirmMessage(`Biztosan lemondja az eseményt: "${event.name}"?`);
+            state.setShowCancellationReason(true);
+        } else {
+            state.setConfirmAction(() => () => {
+                console.log("CalendarApp: confirmAction called for active status");
+                handlers.handleChangeEventStatus(event, newStatus, '');
+            });
+            state.setConfirmMessage(`Biztosan aktívvá teszi az eseményt: "${event.name}"?`);
+            state.setShowCancellationReason(false);
+        }
         state.setShowConfirmModal(true);
+        console.log("CalendarApp: Confirm modal should be shown now");
     };
 
     return (
@@ -183,6 +213,7 @@ const CalendarApp = ({ onLogout }) => {
                 familyMembers={state.familyMembers}
                 showTemporaryMessage={state.showTemporaryMessage}
                 userId={userId}
+                onStatusChange={handleStatusChangeConfirm}
                 
                 // Family member modal
                 showFamilyModal={state.showFamilyModal}
@@ -195,9 +226,57 @@ const CalendarApp = ({ onLogout }) => {
                 // Confirm modal
                 showConfirmModal={state.showConfirmModal}
                 confirmMessage={state.confirmMessage}
-                    onConfirm={() => {
+                showCancellationReason={state.showCancellationReason}
+                onConfirm={(cancellationReason) => {
+                    console.log("CalendarApp: onConfirm called with cancellationReason", cancellationReason);
                     if (state.confirmAction) {
-                        state.confirmAction();
+                        // Ha showCancellationReason igaz, akkor lemondás, és közvetlenül hívjuk a handleSaveEvent-et (ugyanúgy, mint szerkesztéskor)
+                        if (state.showCancellationReason && state.editingEvent) {
+                            const event = state.editingEvent;
+                            // Ugyanazt a logikát használjuk, mint az EventModal-ban
+                            if (event.isRecurringOccurrence && event.originalEventId) {
+                                // Ismétlődő esemény előfordulása - kivételként mentjük
+                                const eventData = {
+                                    id: event.id,
+                                    originalEventId: event.originalEventId,
+                                    isRecurringOccurrence: true,
+                                    displayDate: event.displayDate,
+                                    date: event.date || (event.displayDate ? event.displayDate.toISOString().split('T')[0] : null),
+                                    cancellationReason: cancellationReason || '',
+                                    status: 'cancelled', // Fontos: beállítjuk a státuszt is
+                                    saveAsException: true
+                                };
+                                console.log("CalendarApp: Saving cancellation reason as exception", eventData);
+                                // Frissítjük a state.editingEvent-et, hogy a handleSaveEvent elérje
+                                state.setEditingEvent({ ...event, cancellationReason: cancellationReason || '', status: 'cancelled' });
+                                handlers.handleSaveEvent(eventData);
+                            } else {
+                                // Egyszeri esemény
+                                const eventData = {
+                                    id: event.id,
+                                    name: event.name,
+                                    time: event.time,
+                                    endTime: event.endTime,
+                                    location: event.location,
+                                    assignedTo: event.assignedTo,
+                                    notes: event.notes,
+                                    date: event.date,
+                                    status: 'cancelled',
+                                    cancellationReason: cancellationReason || '',
+                                    recurrenceType: event.recurrenceType || 'none',
+                                    startDate: event.startDate,
+                                    endDate: event.endDate
+                                };
+                                console.log("CalendarApp: Saving cancellation reason for single event", eventData);
+                                handlers.handleSaveEvent(eventData);
+                            }
+                        } else {
+                            // Törlés vagy más művelet esetén
+                            const actionFunction = state.confirmAction();
+                            if (actionFunction) {
+                                actionFunction();
+                            }
+                        }
                     }
                     state.resetConfirmModal();
                 }}

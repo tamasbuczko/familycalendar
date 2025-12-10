@@ -12,11 +12,26 @@ const FamilyMemberEditModal = ({
     const [email, setEmail] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [avatar, setAvatar] = useState('👶');
+    const [color, setColor] = useState('#3B82F6'); // Alapértelmezett kék
     const [role, setRole] = useState('adult');
     const [isChild, setIsChild] = useState(false);
 
     const avatars = [
         '👶', '👧', '👦', '👨‍🦰', '👩‍🦰', '👴', '👵', '🐱', '🐶', '🐰', '🐻', '🦊', '🐸', '🐙', '🦄', '🌈'
+    ];
+
+    // Előre definiált színpaletta - eltérő színek
+    const predefinedColors = [
+        { name: 'Kék', value: '#3B82F6', bg: 'bg-blue-500', text: 'text-blue-50' },
+        { name: 'Zöld', value: '#10B981', bg: 'bg-green-500', text: 'text-green-50' },
+        { name: 'Lila', value: '#8B5CF6', bg: 'bg-purple-500', text: 'text-purple-50' },
+        { name: 'Rózsaszín', value: '#EC4899', bg: 'bg-pink-500', text: 'text-pink-50' },
+        { name: 'Narancs', value: '#F59E0B', bg: 'bg-orange-500', text: 'text-orange-50' },
+        { name: 'Piros', value: '#EF4444', bg: 'bg-red-500', text: 'text-red-50' },
+        { name: 'Türkiz', value: '#06B6D4', bg: 'bg-cyan-500', text: 'text-cyan-50' },
+        { name: 'Sárga', value: '#EAB308', bg: 'bg-yellow-500', text: 'text-yellow-50' },
+        { name: 'Indigo', value: '#6366F1', bg: 'bg-indigo-500', text: 'text-indigo-50' },
+        { name: 'Teal', value: '#14B8A6', bg: 'bg-teal-500', text: 'text-teal-50' }
     ];
 
     // Inicializálás szerkesztési módban
@@ -26,14 +41,17 @@ const FamilyMemberEditModal = ({
             setEmail(editingMember.email || '');
             setBirthDate(editingMember.birthDate || '');
             setAvatar(editingMember.avatar || '👶');
+            setColor(editingMember.color || '#3B82F6');
             setRole(editingMember.role || 'adult');
             setIsChild(editingMember.isChild || false);
         } else {
-            // Új családtag alapértelmezett értékek
+            // Új családtag alapértelmezett értékek - automatikusan választunk egy színt, ami még nincs használatban
             setName('');
             setEmail('');
             setBirthDate('');
             setAvatar('👶');
+            // Alapértelmezett szín: kék
+            setColor('#3B82F6');
             setRole(memberType === 'child' ? 'child' : 'adult');
             setIsChild(memberType === 'child');
         }
@@ -47,6 +65,7 @@ const FamilyMemberEditModal = ({
                 email: email.trim() || null,
                 birthDate: birthDate || null,
                 avatar: avatar,
+                color: color,
                 role: role,
                 isChild: isChild
             };
@@ -174,6 +193,40 @@ const FamilyMemberEditModal = ({
                                 {avatarOption}
                             </button>
                         ))}
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Szín kiválasztása</label>
+                    <div className="grid grid-cols-5 gap-2 mb-2">
+                        {predefinedColors.map((colorOption, index) => (
+                            <button
+                                key={index}
+                                type="button"
+                                onClick={() => setColor(colorOption.value)}
+                                className={`p-3 rounded-lg border-2 transition-all duration-200 ${
+                                    color === colorOption.value 
+                                        ? 'border-gray-800 scale-110 ring-2 ring-offset-2 ring-gray-400' 
+                                        : 'border-gray-200 hover:border-gray-300 hover:scale-105'
+                                }`}
+                                style={{ backgroundColor: colorOption.value }}
+                                title={colorOption.name}
+                            >
+                                {color === colorOption.value && (
+                                    <span className="text-white text-xs font-bold">✓</span>
+                                )}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="color"
+                            value={color}
+                            onChange={(e) => setColor(e.target.value)}
+                            className="h-10 w-20 rounded border border-gray-300 cursor-pointer"
+                            title="Egyedi szín választása"
+                        />
+                        <span className="text-xs text-gray-600">Egyedi szín</span>
                     </div>
                 </div>
 

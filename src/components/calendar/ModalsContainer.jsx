@@ -17,6 +17,7 @@ const ModalsContainer = ({
     familyMembers,
     showTemporaryMessage,
     userId,
+    onStatusChange,
     
     // Family member modal
     showFamilyModal,
@@ -29,6 +30,7 @@ const ModalsContainer = ({
     // Confirm modal
     showConfirmModal,
     confirmMessage,
+    showCancellationReason = false, // Default érték
     onConfirm,
     onCancelConfirm,
     
@@ -102,6 +104,7 @@ const ModalsContainer = ({
                     familyMembers={familyMembers}
                     showTemporaryMessage={showTemporaryMessage}
                     userId={userId}
+                    onStatusChange={onStatusChange}
                 />
             )}
 
@@ -122,6 +125,7 @@ const ModalsContainer = ({
                     message={confirmMessage}
                     onConfirm={onConfirm}
                     onCancel={onCancelConfirm}
+                    showCancellationReason={showCancellationReason}
                 />
             )}
 

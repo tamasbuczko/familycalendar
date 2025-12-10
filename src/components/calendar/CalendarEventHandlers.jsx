@@ -13,7 +13,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         resetChildLoginModal
     } = state;
 
-    // Esemény mentése - konfliktus kezeléssel
+    // Esemény mentése - konfliktus kezeléssel, kivétel kezeléssel, konverzióval
     const handleSaveEvent = async (eventData) => {
         if (!db || !userFamilyId) {
             showTemporaryMessage("Hiba: Az adatok mentése nem lehetséges.");
@@ -22,19 +22,148 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
 
         try {
             const currentTimestamp = new Date().toISOString();
+            
+            // Ellenőrizzük, hogy szerkesztünk-e egy eseményt (state.editingEvent vagy eventData.id alapján)
+            const eventId = eventData.id || (state.editingEvent?.id);
+            const isRecurringOccurrence = eventData.isRecurringOccurrence || state.editingEvent?.isRecurringOccurrence;
+            const originalEventId = eventData.originalEventId || state.editingEvent?.originalEventId;
+            const saveAsException = eventData.saveAsException || false;
+            
+            // Eltávolítjuk az id-t és a helper mezőket az eventData-ból
+            const { id, originalEventId: _, isRecurringOccurrence: __, displayDate: ___, saveAsException: ____, ...eventDataWithoutId } = eventData;
+            
             const eventDataWithTimestamp = {
-                ...eventData,
+                ...eventDataWithoutId,
+                // Ha lemondott esemény, akkor a cancellationReason-t is mentjük, ha aktív, akkor null
+                cancellationReason: eventData.status === 'cancelled' ? (eventData.cancellationReason || null) : null,
                 lastModified: currentTimestamp,
                 lastModifiedBy: userId || 'offline'
             };
             
-            console.log("CalendarEventHandlers: Saving event with user:", userId, "timestamp:", currentTimestamp);
+            console.log("CalendarEventHandlers: Saving event", {
+                eventId,
+                isRecurringOccurrence,
+                originalEventId,
+                saveAsException,
+                recurrenceType: eventData.recurrenceType
+            });
 
             const eventsColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`);
             
-            if (state.editingEvent) {
+            // Kivétel kezelés: ha ismétlődő esemény előfordulását szerkesztjük és kivételként mentjük
+            if (isRecurringOccurrence && originalEventId && saveAsException) {
+                const originalEventRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, originalEventId);
+                const originalEventDoc = await getDoc(originalEventRef);
+                
+                if (originalEventDoc.exists()) {
+                    const originalEvent = originalEventDoc.data();
+                    const exceptions = originalEvent.exceptions || [];
+                    
+                    // A dátum meghatározása: eventData.date, displayDate, vagy state.editingEvent-ből
+                    let eventDate = eventData.date;
+                    if (!eventDate && state.editingEvent?.displayDate) {
+                        eventDate = state.editingEvent.displayDate.toISOString().split('T')[0];
+                    }
+                    if (!eventDate && state.editingEvent?.date) {
+                        eventDate = state.editingEvent.date;
+                    }
+                    
+                    if (!eventDate) {
+                        showTemporaryMessage("Hiba: Nem sikerült meghatározni az esemény dátumát.");
+                        return;
+                    }
+                    
+                    // Ellenőrizzük, hogy már van-e kivétel erre a dátumra
+                    const existingExceptionIndex = exceptions.findIndex(ex => ex.date === eventDate);
+                    
+                    const exceptionData = {
+                        date: eventDate,
+                        name: eventData.name || state.editingEvent?.name,
+                        time: eventData.time || state.editingEvent?.time,
+                        endTime: eventData.endTime || state.editingEvent?.endTime,
+                        location: eventData.location || state.editingEvent?.location,
+                        assignedTo: eventData.assignedTo || state.editingEvent?.assignedTo,
+                        notes: eventData.notes || state.editingEvent?.notes,
+                        status: eventData.status || state.editingEvent?.status || 'cancelled', // Megtartjuk a lemondott státuszt, ha van
+                        cancellationReason: eventData.cancellationReason || state.editingEvent?.cancellationReason || null,
+                        lastModified: currentTimestamp,
+                        lastModifiedBy: userId || 'offline'
+                    };
+                    
+                    if (existingExceptionIndex >= 0) {
+                        // Ha már van kivétel, frissítjük
+                        exceptions[existingExceptionIndex] = exceptionData;
+                    } else {
+                        // Ha nincs kivétel, hozzáadjuk
+                        exceptions.push(exceptionData);
+                    }
+                    
+                    await updateDoc(originalEventRef, {
+                        exceptions,
+                        lastModified: currentTimestamp,
+                        lastModifiedBy: userId || 'offline'
+                    });
+                    
+                    showTemporaryMessage("Esemény kivételként sikeresen mentve!");
+                    resetEventModal();
+                    return;
+                } else {
+                    showTemporaryMessage("Hiba: Az eredeti ismétlődő esemény nem található.");
+                    return;
+                }
+            }
+            
+            // Ha ismétlődő esemény előfordulása (de nem kivételként), akkor az eredeti eseményt frissítjük
+            if (isRecurringOccurrence && originalEventId && !saveAsException) {
+                const originalEventRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, originalEventId);
+                const originalEventDoc = await getDoc(originalEventRef);
+                
+                if (originalEventDoc.exists()) {
+                    // Az eredeti ismétlődő eseményt frissítjük (minden előfordulás módosul)
+                    await updateDoc(originalEventRef, eventDataWithTimestamp);
+                    showTemporaryMessage("Ismétlődő esemény sikeresen frissítve! (Minden előfordulás módosul)");
+                    resetEventModal();
+                    return;
+                } else {
+                    showTemporaryMessage("Hiba: Az eredeti ismétlődő esemény nem található.");
+                    return;
+                }
+            }
+            
+            if (eventId) {
+                // Ellenőrizzük, hogy az eventId nem egy generált ID-e (ismétlődő esemény előfordulásának ID-ja)
+                // Generált ID formátum: {originalEventId}-{date} (pl. "USBaja5jMeXb8ISbrhfu-2025-12-10")
+                // Ellenőrizzük, hogy az ID tartalmaz-e dátum formátumot a végén (YYYY-MM-DD)
+                const datePattern = /\d{4}-\d{2}-\d{2}$/;
+                const isGeneratedId = datePattern.test(eventId) && eventId.includes('-');
+                
+                console.log("CalendarEventHandlers: Checking eventId", {
+                    eventId,
+                    isGeneratedId,
+                    originalEventId,
+                    isRecurringOccurrence
+                });
+                
+                if (isGeneratedId && originalEventId) {
+                    // Ha generált ID és van originalEventId, akkor az eredeti eseményt frissítjük
+                    const originalEventRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, originalEventId);
+                    const originalEventDoc = await getDoc(originalEventRef);
+                    
+                    if (originalEventDoc.exists()) {
+                        // Az eredeti ismétlődő eseményt frissítjük
+                        await updateDoc(originalEventRef, eventDataWithTimestamp);
+                        showTemporaryMessage("Ismétlődő esemény sikeresen frissítve! (Minden előfordulás módosul)");
+                        resetEventModal();
+                        return;
+                    } else {
+                        console.warn("CalendarEventHandlers: Original event not found", { originalEventId });
+                        showTemporaryMessage("Hiba: Az eredeti ismétlődő esemény nem található.");
+                        return;
+                    }
+                }
+                
                 // Esemény szerkesztése - konfliktus ellenőrzés
-                const eventDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, state.editingEvent.id);
+                const eventDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, eventId);
                 const eventDoc = await getDoc(eventDocRef);
                 
                 if (eventDoc.exists()) {
@@ -42,14 +171,29 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                     const existingTimestamp = existingEvent.lastModified;
                     
                     // Ha a meglévő esemény újabb, mint amit szerkesztünk, konfliktus
-                    if (existingTimestamp && state.editingEvent.lastModified && 
+                    if (existingTimestamp && state.editingEvent?.lastModified && 
                         new Date(existingTimestamp).getTime() > new Date(state.editingEvent.lastModified).getTime()) {
                         showTemporaryMessage("Figyelem: Az eseményt valaki más már módosította. A legújabb verzió lesz mentve.");
                     }
+                    
+                    // Ha létezik, updateDoc-ot használunk
+                    await updateDoc(eventDocRef, eventDataWithTimestamp);
+                    showTemporaryMessage("Esemény sikeresen frissítve!");
+                } else {
+                    // Ha nem létezik és generált ID, akkor ne próbáljuk frissíteni
+                    if (isGeneratedId) {
+                        console.warn("CalendarEventHandlers: Generated ID document does not exist, skipping update", {
+                            eventId,
+                            originalEventId
+                        });
+                        showTemporaryMessage("Hiba: Az esemény nem található. Kérjük, próbálja újra.");
+                        return;
+                    }
+                    
+                    // Ha nem létezik és nincs originalEventId, setDoc-ot használunk merge: true-val
+                    await setDoc(eventDocRef, eventDataWithTimestamp, { merge: true });
+                    showTemporaryMessage("Esemény sikeresen frissítve!");
                 }
-                
-                await updateDoc(eventDocRef, eventDataWithTimestamp);
-                showTemporaryMessage("Esemény sikeresen frissítve!");
             } else {
                 await addDoc(eventsColRef, eventDataWithTimestamp);
                 showTemporaryMessage("Esemény sikeresen hozzáadva!");
@@ -126,27 +270,186 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
         }
     };
 
-    // Esemény törlése
+    // Esemény törlése - egységes logika egyszeri és ismétlődő eseményekre
+    // Ha törlünk egy ismétlődő eseményt (bármelyik előfordulását), az EGÉSZ ismétlődő eseményt töröljük
     const handleDeleteEvent = async (event) => {
         if (!db || !userFamilyId) return;
 
         try {
-            const eventDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, event.id);
-            await deleteDoc(eventDocRef);
-            showTemporaryMessage("Esemény sikeresen törölve!");
+            // Meghatározzuk az eredeti esemény ID-ját
+            // Ha ismétlődő esemény előfordulása, akkor az originalEventId-t használjuk
+            // Ha nem, akkor az event.id-t
+            const originalEventId = event.isRecurringOccurrence && event.originalEventId 
+                ? event.originalEventId 
+                : event.id;
+            
+            console.log("CalendarEventHandlers: Deleting event", {
+                eventId: event.id,
+                isRecurringOccurrence: event.isRecurringOccurrence,
+                originalEventId: event.originalEventId,
+                targetEventId: originalEventId
+            });
+            
+            // Az eredeti eseményt töröljük (egységes logika egyszeri és ismétlődő eseményekre)
+            const eventDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, originalEventId);
+            const eventDoc = await getDoc(eventDocRef);
+            
+            if (eventDoc.exists()) {
+                // Egységes logika: minden eseményt deleted státuszra állítunk (soft delete)
+                // Ez törli az egész ismétlődő eseményt, minden előfordulással együtt
+                await updateDoc(eventDocRef, {
+                    status: 'deleted',
+                    lastModified: new Date().toISOString(),
+                    lastModifiedBy: userId || 'offline'
+                });
+                
+                console.log("CalendarEventHandlers: Event deleted successfully", {
+                    eventId: originalEventId,
+                    wasRecurring: event.isRecurringOccurrence
+                });
+                
+                showTemporaryMessage("Esemény sikeresen törölve!");
+            } else {
+                // Ha nem létezik, deleted státuszra állítjuk
+                await setDoc(eventDocRef, {
+                    ...event,
+                    status: 'deleted',
+                    lastModified: new Date().toISOString(),
+                    lastModifiedBy: userId || 'offline'
+                }, { merge: true });
+                
+                console.log("CalendarEventHandlers: Event marked as deleted (did not exist)", {
+                    eventId: originalEventId
+                });
+                
+                showTemporaryMessage("Esemény sikeresen törölve!");
+            }
         } catch (error) {
             console.error("CalendarEventHandlers: Hiba az esemény törlésekor:", error);
             showTemporaryMessage("Hiba az esemény törlésekor.");
         }
     };
 
-    // Esemény státuszának módosítása
-    const handleChangeEventStatus = async (event, newStatus) => {
+    // Esemény státuszának módosítása - egységes logika egyszeri és ismétlődő eseményekre
+    const handleChangeEventStatus = async (event, newStatus, cancellationReason = '') => {
+        console.log("CalendarEventHandlers: handleChangeEventStatus called", {
+            eventId: event.id,
+            eventName: event.name,
+            newStatus,
+            cancellationReason: cancellationReason || '(empty)',
+            cancellationReasonType: typeof cancellationReason,
+            cancellationReasonLength: cancellationReason ? cancellationReason.length : 0,
+            isRecurringOccurrence: event.isRecurringOccurrence
+        });
+        
         if (!db || !userFamilyId) return;
 
         try {
+            // Ha ismétlődő esemény előfordulása, kivételt hozunk létre
+            if (event.isRecurringOccurrence && event.originalEventId) {
+                const originalEventRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, event.originalEventId);
+                const originalEventDoc = await getDoc(originalEventRef);
+                
+                if (originalEventDoc.exists()) {
+                    const originalEvent = originalEventDoc.data();
+                    const exceptions = originalEvent.exceptions || [];
+                    
+                    // A dátum meghatározása - fontos, hogy konzisztens formátumban legyen (YYYY-MM-DD)
+                    let eventDate = event.date;
+                    if (!eventDate && event.displayDate) {
+                        // Ha displayDate Date objektum, konvertáljuk string formátumba
+                        if (event.displayDate instanceof Date) {
+                            eventDate = event.displayDate.toISOString().split('T')[0];
+                        } else if (typeof event.displayDate === 'string') {
+                            eventDate = event.displayDate.split('T')[0];
+                        }
+                    }
+                    
+                    if (!eventDate) {
+                        showTemporaryMessage("Hiba: Nem sikerült meghatározni az esemény dátumát.");
+                        return;
+                    }
+                    
+                    console.log("CalendarEventHandlers: Changing status of recurring occurrence", {
+                        originalEventId: event.originalEventId,
+                        eventDate,
+                        newStatus,
+                        currentExceptions: exceptions.length
+                    });
+                    
+                    // Ellenőrizzük, hogy már van-e kivétel erre a dátumra
+                    const existingExceptionIndex = exceptions.findIndex(ex => ex.date === eventDate);
+                    
+                    if (existingExceptionIndex >= 0) {
+                        // Ha már van kivétel, frissítjük a státuszt
+                        exceptions[existingExceptionIndex] = {
+                            ...exceptions[existingExceptionIndex],
+                            status: newStatus,
+                            cancellationReason: newStatus === 'cancelled' ? cancellationReason : (exceptions[existingExceptionIndex].cancellationReason || ''),
+                            lastModified: new Date().toISOString(),
+                            lastModifiedBy: userId || 'offline'
+                        };
+                    } else {
+                        // Ha nincs kivétel, hozzáadjuk az eredeti esemény adataival
+                        exceptions.push({
+                            date: eventDate,
+                            name: event.name,
+                            time: event.time,
+                            endTime: event.endTime,
+                            location: event.location,
+                            assignedTo: event.assignedTo,
+                            notes: event.notes,
+                            status: newStatus,
+                            cancellationReason: newStatus === 'cancelled' ? cancellationReason : '',
+                            lastModified: new Date().toISOString(),
+                            lastModifiedBy: userId || 'offline'
+                        });
+                    }
+                    
+                    await updateDoc(originalEventRef, {
+                        exceptions,
+                        lastModified: new Date().toISOString(),
+                        lastModifiedBy: userId || 'offline'
+                    });
+                    
+                    showTemporaryMessage(`Esemény előfordulás státusza sikeresen ${newStatus}-re módosítva!`);
+                    return;
+                } else {
+                    showTemporaryMessage("Hiba: Az eredeti esemény nem található.");
+                    return;
+                }
+            }
+            
+            // Ha nem ismétlődő esemény előfordulása, akkor az eredeti eseményt frissítjük
             const eventDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, event.id);
-            await updateDoc(eventDocRef, { status: newStatus });
+            const eventDoc = await getDoc(eventDocRef);
+            
+            if (eventDoc.exists()) {
+                // Ha létezik, updateDoc-ot használunk
+                const updateData = {
+                    status: newStatus,
+                    lastModified: new Date().toISOString(),
+                    lastModifiedBy: userId || 'offline'
+                };
+                // Ha lemondás, akkor a cancellationReason-t is mentjük
+                if (newStatus === 'cancelled') {
+                    updateData.cancellationReason = cancellationReason;
+                } else if (newStatus === 'active') {
+                    // Ha aktívvá teszünk, töröljük a cancellationReason-t
+                    updateData.cancellationReason = null;
+                }
+                await updateDoc(eventDocRef, updateData);
+            } else {
+                // Ha nem létezik, deleted státuszra állítjuk
+                await setDoc(eventDocRef, { 
+                    ...event,
+                    status: newStatus,
+                    cancellationReason: newStatus === 'cancelled' ? cancellationReason : null,
+                    lastModified: new Date().toISOString(),
+                    lastModifiedBy: userId || 'offline'
+                }, { merge: true });
+            }
+            
             showTemporaryMessage(`Esemény státusza sikeresen ${newStatus}-re módosítva!`);
         } catch (error) {
             console.error("CalendarEventHandlers: Hiba az esemény státuszának módosításakor:", error);

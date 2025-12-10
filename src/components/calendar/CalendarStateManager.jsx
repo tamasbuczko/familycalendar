@@ -22,6 +22,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
     const [confirmMessage, setConfirmMessage] = useState('');
+    const [showCancellationReason, setShowCancellationReason] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [showChildProfileModal, setShowChildProfileModal] = useState(false);
     const [showChildLoginModal, setShowChildLoginModal] = useState(false);
@@ -250,7 +251,19 @@ export const useCalendarState = (db, userId, userFamilyId) => {
 
         const eventsColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`);
         const unsubscribe = onSnapshot(eventsColRef, (snapshot) => {
-            const fetchedEvents = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const fetchedEvents = snapshot.docs.map(doc => {
+                const data = doc.data();
+                // Debug log ismétlődő eseményekhez
+                if (data.recurrenceType === 'weekly') {
+                    console.log("CalendarStateManager: Loaded recurring event", {
+                        eventId: doc.id,
+                        eventName: data.name,
+                        exceptionsCount: data.exceptions?.length || 0,
+                        exceptions: data.exceptions?.map(ex => ({ date: ex.date, dateType: typeof ex.date, status: ex.status })) || []
+                    });
+                }
+                return { id: doc.id, ...data };
+            });
             setEvents(fetchedEvents);
             
             // Offline backup: localStorage-ba mentés
@@ -344,6 +357,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
     const resetConfirmModal = () => {
         setShowConfirmModal(false);
         setConfirmAction(null);
+        setShowCancellationReason(false);
     };
 
     const resetInviteModal = () => {
@@ -392,6 +406,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         showConfirmModal,
         confirmAction,
         confirmMessage,
+        showCancellationReason,
         showInviteModal,
         showChildProfileModal,
         showChildLoginModal,
@@ -433,6 +448,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setFamilyData,
         setConfirmAction,
         setConfirmMessage,
+        setShowCancellationReason,
         setInviteLoading,
         setChildLoading,
         setChildLoginLoading,

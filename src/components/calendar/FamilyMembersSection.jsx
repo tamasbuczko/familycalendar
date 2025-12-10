@@ -43,31 +43,44 @@ const FamilyMembersSection = ({
                 {familyMembers.length === 0 ? (
                     <p className="text-gray-500">Még nincsenek családtagok hozzáadva.</p>
                 ) : (
-                    familyMembers.map(member => (
-                        <div key={member.id} className="group relative">
-                            <span className="bg-purple-100 text-purple-800 text-sm font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-0 group-hover:gap-2 transition-all duration-200 ease-in-out min-w-fit">
-                                <span className="whitespace-nowrap">{member.name}</span>
-                                {!isChildMode && (
-                                    <>
-                                        <button
-                                            onClick={() => onEditMember(member)}
-                                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 text-blue-600 hover:text-blue-800 font-bold text-xs hover:scale-110 w-0 group-hover:w-4 overflow-hidden"
-                                            title="Családtag szerkesztése"
-                                        >
-                                            <i className="fas fa-edit"></i>
-                                        </button>
-                                        <button
-                                            onClick={() => onDeleteMember(member.id, member.name)}
-                                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 text-red-600 hover:text-red-800 font-bold text-xs hover:scale-110 w-0 group-hover:w-4 overflow-hidden"
-                                            title="Családtag törlése"
-                                        >
-                                            <i className="fas fa-times"></i>
-                                        </button>
-                                    </>
-                                )}
-                            </span>
-                        </div>
-                    ))
+                    familyMembers.map(member => {
+                        const memberColor = member.color || '#8B5CF6'; // Alapértelmezett lila, ha nincs szín
+                        const memberAvatar = member.avatar || '👤';
+                        return (
+                            <div key={member.id} className="group relative">
+                                <span 
+                                    className="text-sm font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit"
+                                    style={{ 
+                                        backgroundColor: `${memberColor}20`, 
+                                        color: memberColor,
+                                        border: `1px solid ${memberColor}40`
+                                    }}
+                                >
+                                    <span className="text-lg">{memberAvatar}</span>
+                                    <span className="whitespace-nowrap">{member.name}</span>
+                                    {!isChildMode && (
+                                        <>
+                                            <button
+                                                onClick={() => onEditMember(member)}
+                                                className="opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 w-0 group-hover:w-4 overflow-hidden"
+                                                style={{ color: memberColor }}
+                                                title="Családtag szerkesztése"
+                                            >
+                                                <i className="fas fa-edit"></i>
+                                            </button>
+                                            <button
+                                                onClick={() => onDeleteMember(member.id, member.name)}
+                                                className="opacity-0 group-hover:opacity-100 transition-all duration-200 text-red-600 hover:text-red-800 font-bold text-xs hover:scale-110 w-0 group-hover:w-4 overflow-hidden"
+                                                title="Családtag törlése"
+                                            >
+                                                <i className="fas fa-times"></i>
+                                            </button>
+                                        </>
+                                    )}
+                                </span>
+                            </div>
+                        );
+                    })
                 )}
             </div>
         </div>

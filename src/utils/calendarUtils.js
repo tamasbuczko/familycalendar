@@ -47,6 +47,26 @@ export const useCalendarUtils = () => {
         weekEnd.setHours(23, 59, 59, 999);
 
         allEvents.forEach(event => {
+            // Ne jelenítsük meg a törölt eseményeket (kivéve, ha van kivétel)
+            if (event.status === 'deleted') {
+                console.log("calendarUtils: Skipping deleted event", {
+                    eventId: event.id,
+                    eventName: event.name,
+                    recurrenceType: event.recurrenceType
+                });
+                return; // Kihagyjuk a törölt eseményeket
+            }
+            
+            // Debug log ismétlődő eseményekhez
+            if (event.recurrenceType === 'weekly') {
+                console.log("calendarUtils: Processing recurring event", {
+                    eventId: event.id,
+                    eventName: event.name,
+                    exceptionsCount: event.exceptions?.length || 0,
+                    exceptions: event.exceptions?.map(ex => ({ date: ex.date, status: ex.status })) || []
+                });
+            }
+            
             if (event.recurrenceType === 'none') {
                 const eventDate = new Date(event.date);
                 eventDate.setHours(0, 0, 0, 0);
@@ -73,8 +93,34 @@ export const useCalendarUtils = () => {
                         // Ellenőrizzük, hogy a hét napja megegyezik-e
                         if (event.recurrenceDays && event.recurrenceDays.includes(day.getDay())) {
                             // Ellenőrizzük a kivételeket erre a specifikus előfordulásra
-                            const exception = event.exceptions?.find(ex => ex.date === day.toISOString().split('T')[0]);
+                            // A dátum formátuma: YYYY-MM-DD (string)
+                            const dayDateString = day.toISOString().split('T')[0];
+                            const exception = event.exceptions?.find(ex => {
+                                // Biztosítjuk, hogy mindkét dátum string formátumban legyen
+                                const exDate = typeof ex.date === 'string' ? ex.date : (ex.date instanceof Date ? ex.date.toISOString().split('T')[0] : null);
+                                const matches = exDate === dayDateString;
+                                if (matches) {
+                                    console.log("calendarUtils: Found exception for date", {
+                                        dayDateString,
+                                        exDate,
+                                        exceptionStatus: ex.status,
+                                        exception: ex
+                                    });
+                                }
+                                return matches;
+                            });
                             const occurrenceStatus = exception ? exception.status : event.status;
+                            
+                            // Debug log, ha deleted státuszú
+                            if (occurrenceStatus === 'deleted') {
+                                console.log("calendarUtils: Skipping deleted occurrence", {
+                                    eventId: event.id,
+                                    dayDateString,
+                                    hasException: !!exception,
+                                    exceptionStatus: exception?.status,
+                                    eventStatus: event.status
+                                });
+                            }
 
                             if (occurrenceStatus !== 'deleted') { // Ne jelenítsük meg, ha véglegesen törölve van erre az előfordulásra
                                 // Ha van kivétel, alkalmazzuk az összes kivétel mezőt

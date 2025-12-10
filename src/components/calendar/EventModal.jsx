@@ -3,7 +3,7 @@ import Modal from '../ui/Modal.jsx';
 import { useNotifications } from '../../hooks/useNotifications.js';
 
 // Esemény Modal komponens
-const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessage, userId }) => {
+const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessage, userId, onStatusChange }) => {
     const [name, setName] = useState(event?.name || '');
     const [date, setDate] = useState(event?.date || new Date().toISOString().split('T')[0]); // Egyszeri esemény dátuma
     const [time, setTime] = useState(event?.time || '09:00');
@@ -12,12 +12,17 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const [assignedTo, setAssignedTo] = useState(event?.assignedTo || '');
     const [notes, setNotes] = useState(event?.notes || ''); // Új: megjegyzések
     const [status, setStatus] = useState(event?.status || 'active');
+    const [cancellationReason, setCancellationReason] = useState(event?.cancellationReason || '');
+    const [showAvatar, setShowAvatar] = useState(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
 
     // Ismétlődéshez kapcsolódó állapotok
     const [recurrenceType, setRecurrenceType] = useState(event?.recurrenceType || 'none'); // 'none', 'weekly'
     const [startDate, setStartDate] = useState(event?.startDate || new Date().toISOString().split('T')[0]); // Ismétlődő esemény kezdő dátuma
     const [endDate, setEndDate] = useState(event?.endDate || ''); // Ismétlődő esemény befejező dátuma (opcionális)
     const [recurrenceDays, setRecurrenceDays] = useState(event?.recurrenceDays || []); // Hét napjai (0=Vasárnap, 1=Hétfő...)
+    
+    // Kivétel kezelés: ha ismétlődő esemény előfordulását szerkesztjük, lehetőség kivételként menteni
+    const [saveAsException, setSaveAsException] = useState(false);
 
     // Értesítési beállítások
     const [remindersEnabled, setRemindersEnabled] = useState(event?.reminders?.enabled || true);
@@ -27,6 +32,68 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
 
     // Értesítések hook
     const notifications = useNotifications(userId);
+
+    // Frissítsük az állapotot, amikor az event prop változik
+    useEffect(() => {
+        if (event) {
+            // Ha ismétlődő esemény előfordulása, használjuk a displayDate-et
+            const eventDate = event.isRecurringOccurrence && event.displayDate 
+                ? event.displayDate.toISOString().split('T')[0]
+                : (event.date || new Date().toISOString().split('T')[0]);
+            
+            setName(event.name || '');
+            setDate(eventDate);
+            setTime(event.time || '09:00');
+            setEndTime(event.endTime || '');
+            setLocation(event.location || '');
+            setAssignedTo(event.assignedTo || '');
+            setNotes(event.notes || '');
+            setStatus(event.status || 'active');
+            setCancellationReason(event.cancellationReason || '');
+            setShowAvatar(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
+            
+            // Ha ismétlődő esemény előfordulása, az eredeti esemény recurrenceType-ját használjuk
+            // Az eredeti esemény recurrenceType-ját kell használni, hogy látszódjon, hogy ismétlődő
+            if (event.isRecurringOccurrence && event.originalEventId) {
+                // Az eredeti esemény recurrenceType-ját használjuk
+                // Meg kell keresni az eredeti eseményt, de mivel nincs hozzáférése, használjuk az event.recurrenceType-t
+                // Ha az event-ben nincs recurrenceType, akkor 'weekly' (mert ismétlődő esemény)
+                setRecurrenceType(event.recurrenceType || 'weekly');
+            } else {
+                setRecurrenceType(event.recurrenceType || 'none');
+            }
+            
+            setStartDate(event.startDate || new Date().toISOString().split('T')[0]);
+            setEndDate(event.endDate || '');
+            setRecurrenceDays(event.recurrenceDays || []);
+            setRemindersEnabled(event.reminders?.enabled !== undefined ? event.reminders.enabled : true);
+            setReminderTimes(event.reminders?.times || [10, 30]);
+            setReminderSound(event.reminders?.sound !== undefined ? event.reminders.sound : true);
+            setReminderVibration(event.reminders?.vibration !== undefined ? event.reminders.vibration : true);
+            
+            // Ha ismétlődő esemény előfordulását szerkesztjük, alapértelmezetten ne legyen kivétel
+            setSaveAsException(false);
+        } else {
+            // Új esemény - alapértelmezett értékek
+            setName('');
+            setDate(new Date().toISOString().split('T')[0]);
+            setTime('09:00');
+            setEndTime('');
+            setLocation('');
+            setAssignedTo('');
+            setNotes('');
+            setStatus('active');
+            setCancellationReason('');
+            setRecurrenceType('none');
+            setStartDate(new Date().toISOString().split('T')[0]);
+            setEndDate('');
+            setRecurrenceDays([]);
+            setRemindersEnabled(true);
+            setReminderTimes([10, 30]);
+            setReminderSound(true);
+            setReminderVibration(true);
+        }
+    }, [event]);
 
     const weekDaysOptions = [
         { name: 'Hétfő', value: 1 },
@@ -94,6 +161,54 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const handleSubmit = (e) => {
         e.preventDefault();
         console.log("EventModal: handleSubmit called"); // Debug log
+        
+        // Ha lemondott eseményt szerkesztünk, csak a cancellationReason-t mentjük
+        if (event && event.status === 'cancelled' && status === 'cancelled') {
+            // Ha ismétlődő esemény előfordulása, akkor kivételként kell menteni
+            if (event.isRecurringOccurrence && event.originalEventId) {
+                const eventData = {
+                    id: event.id,
+                    originalEventId: event.originalEventId,
+                    isRecurringOccurrence: true,
+                    displayDate: event.displayDate,
+                    date: event.date || (event.displayDate ? event.displayDate.toISOString().split('T')[0] : null),
+                    cancellationReason: cancellationReason,
+                    saveAsException: true // Automatikusan kivételként mentjük
+                };
+                console.log("EventModal: Saving cancellation reason as exception", eventData);
+                onSave(eventData);
+                return;
+            } else {
+                // Egyszeri esemény - csak a cancellationReason-t frissítjük
+                const eventData = {
+                    id: event.id,
+                    name: event.name,
+                    time: event.time,
+                    endTime: event.endTime,
+                    location: event.location,
+                    assignedTo: event.assignedTo,
+                    notes: event.notes,
+                    date: event.date,
+                    status: 'cancelled', // Megtartjuk a lemondott státuszt
+                    cancellationReason: cancellationReason,
+                    recurrenceType: event.recurrenceType || 'none',
+                    startDate: event.startDate,
+                    endDate: event.endDate,
+                    recurrenceDays: event.recurrenceDays || [],
+                    exceptions: event.exceptions || [],
+                    reminders: event.reminders || {
+                        enabled: true,
+                        times: [10, 30],
+                        sound: true,
+                        vibration: true
+                    }
+                };
+                console.log("EventModal: Saving cancellation reason for single event", eventData);
+                onSave(eventData);
+                return;
+            }
+        }
+        
         if (!name || !time) {
             showTemporaryMessage('Kérjük, töltse ki a kötelező mezőket (Esemény neve, Idő).');
             console.log("EventModal: Validation failed - name or time missing"); // Debug log
@@ -112,7 +227,9 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             location,
             assignedTo,
             notes, // Új mező
-            status: event?.status || 'active', // Megőrizzük a meglévő státuszt vagy alapértelmezettként aktív
+            status: status, // Használjuk a formban beállított státuszt
+            cancellationReason: status === 'cancelled' ? cancellationReason : null, // Lemondás oka (csak ha lemondott)
+            showAvatar: showAvatar, // Avatar megjelenítése a naptárban
             exceptions: event?.exceptions || [], // Megőrizzük a meglévő kivételeket
             reminders: {
                 enabled: remindersEnabled,
@@ -121,6 +238,19 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                 vibration: reminderVibration
             }
         };
+
+        // Ha szerkesztünk egy eseményt, adjuk hozzá az ID-t és az originalEventId-t (ha ismétlődő előfordulás)
+        if (event?.id) {
+            eventData.id = event.id;
+        }
+        if (event?.originalEventId) {
+            eventData.originalEventId = event.originalEventId;
+            eventData.isRecurringOccurrence = event.isRecurringOccurrence;
+            eventData.displayDate = event.displayDate;
+        }
+        
+        // Kivétel kezelés flag
+        eventData.saveAsException = saveAsException;
 
         if (recurrenceType === 'none') {
             if (!date) {
@@ -164,8 +294,50 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     return (
         <Modal onClose={onClose} title={event ? "Esemény szerkesztése" : "Új esemény hozzáadása"}>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="eventName" className="block text-sm font-medium text-gray-700">Esemény neve</label>
+                {/* Ha lemondott esemény, csak a lemondás okát és a visszaállítás gombot mutatjuk */}
+                {event && status === 'cancelled' ? (
+                    <>
+                        <div>
+                            <label htmlFor="cancellationReason" className="block text-sm font-medium text-gray-700 mb-2">
+                                Lemondás oka:
+                            </label>
+                            <textarea
+                                id="cancellationReason"
+                                value={cancellationReason}
+                                onChange={(e) => setCancellationReason(e.target.value)}
+                                placeholder="Pl. elmarad az óra, betegség, stb."
+                                className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                rows="4"
+                            />
+                        </div>
+                        
+                        <div className="flex gap-3">
+                            <button
+                                type="submit"
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                            >
+                                💾 Mentés
+                            </button>
+                            {onStatusChange && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onStatusChange) {
+                                            onStatusChange(event, 'active');
+                                            onClose();
+                                        }
+                                    }}
+                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                                >
+                                    ✅ Visszaállítás
+                                </button>
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div>
+                            <label htmlFor="eventName" className="block text-sm font-medium text-gray-700">Esemény neve</label>
                     <input
                         type="text"
                         id="eventName"
@@ -219,9 +391,25 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                     >
                         <option value="">Válasszon családtagot</option>
                         {familyMembers.map(member => (
-                            <option key={member.id} value={member.id}>{member.name}</option>
+                            <option key={member.id} value={member.id}>
+                                {member.avatar ? `${member.avatar} ${member.name}` : member.name}
+                            </option>
                         ))}
                     </select>
+                    {assignedTo && (
+                        <div className="mt-2 flex items-center">
+                            <input
+                                type="checkbox"
+                                id="showAvatar"
+                                checked={showAvatar}
+                                onChange={(e) => setShowAvatar(e.target.checked)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <label htmlFor="showAvatar" className="ml-2 block text-sm text-gray-700">
+                                Avatar megjelenítése a naptárban
+                            </label>
+                        </div>
+                    )}
                 </div>
                 <div>
                     <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Megjegyzések</label>
@@ -317,9 +505,9 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                     </>
                 )}
 
-                {event && ( // Csak szerkesztéskor jelenjen meg a státusz (az eredeti esemény státusza)
+                {event && !event.isRecurringOccurrence && ( // Csak szerkesztéskor jelenjen meg a státusz (az eredeti esemény státusza)
                     <div>
-                        <label htmlFor="eventStatus" className="block text-sm font-medium text-gray-700">Státusz (eredeti esemény)</label>
+                        <label htmlFor="eventStatus" className="block text-sm font-medium text-gray-700">Státusz</label>
                         <select
                             id="eventStatus"
                             value={status}
@@ -327,9 +515,29 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                             className="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                         >
                             <option value="active">Aktív</option>
-                            <option value="cancelled">Lemondva (teljes sorozat)</option>
-                            {/* A "deleted" státuszt itt nem engedjük, mert az előfordulásonkénti törlésre vonatkozik */}
+                            <option value="cancelled">Lemondva</option>
+                            {/* A "deleted" státuszt itt nem engedjük, mert az törlésre vonatkozik */}
                         </select>
+                    </div>
+                )}
+
+                {/* Lemondás oka szerkesztése - csak lemondott eseménynél */}
+                {event && status === 'cancelled' && (
+                    <div className="border-t pt-4">
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">❌ Lemondás oka</h3>
+                        <div>
+                            <label htmlFor="cancellationReason" className="block text-sm font-medium text-gray-700 mb-2">
+                                Lemondás oka (opcionális):
+                            </label>
+                            <textarea
+                                id="cancellationReason"
+                                value={cancellationReason}
+                                onChange={(e) => setCancellationReason(e.target.value)}
+                                placeholder="Pl. elmarad az óra, betegség, stb."
+                                className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                rows="3"
+                            />
+                        </div>
                     </div>
                 )}
 
@@ -468,12 +676,38 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                         )}
                     </div>
                 </div>
-                <button
-                    type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-                >
-                    {event ? "Mentés" : "Hozzáadás"}
-                </button>
+                
+                {/* Kivétel kezelés: csak akkor, ha ismétlődő esemény előfordulását szerkesztjük (nem új esemény, nem egyszeri) */}
+                {event?.isRecurringOccurrence && event?.originalEventId && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                            <input
+                                type="checkbox"
+                                id="saveAsException"
+                                checked={saveAsException}
+                                onChange={(e) => setSaveAsException(e.target.checked)}
+                                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            />
+                            <div className="ml-3">
+                                <label htmlFor="saveAsException" className="block text-sm font-medium text-gray-700 cursor-pointer">
+                                    Kivételként mentés (csak erre a napra)
+                                </label>
+                                <p className="text-xs text-gray-600 mt-1">
+                                    Ha be van jelölve, a módosítások csak erre a napra vonatkoznak. Az eredeti ismétlődő esemény változatlan marad, és a többi előfordulás nem módosul.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                        <button
+                            type="submit"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                        >
+                            {event ? "Mentés" : "Hozzáadás"}
+                        </button>
+                    </>
+                )}
             </form>
         </Modal>
     );
