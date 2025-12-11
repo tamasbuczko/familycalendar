@@ -73,7 +73,7 @@ const ChildProfileModal = ({ onClose, onCreateChild, loading, editingMember }) =
                                 key={index}
                                 type="button"
                                 onClick={() => setChildAvatar(avatar)}
-                                className={`p-2 text-2xl rounded-lg border-2 transition-all duration-200 ${
+                                className={`text-2xl rounded-lg border-2 transition-all duration-200 flex items-center justify-center ${
                                     childAvatar === avatar 
                                         ? 'border-blue-500 bg-blue-50 scale-110' 
                                         : 'border-gray-200 hover:border-gray-300 hover:scale-105'

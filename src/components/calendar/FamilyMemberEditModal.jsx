@@ -12,7 +12,7 @@ const FamilyMemberEditModal = ({
     const [email, setEmail] = useState('');
     const [birthDate, setBirthDate] = useState('');
     const [avatar, setAvatar] = useState('👶');
-    const [color, setColor] = useState('#3B82F6'); // Alapértelmezett kék
+    const [color, setColor] = useState('#10B981'); // Alapértelmezett zöld
     const [role, setRole] = useState('adult');
     const [isChild, setIsChild] = useState(false);
 
@@ -22,8 +22,8 @@ const FamilyMemberEditModal = ({
 
     // Előre definiált színpaletta - eltérő színek
     const predefinedColors = [
-        { name: 'Kék', value: '#3B82F6', bg: 'bg-blue-500', text: 'text-blue-50' },
         { name: 'Zöld', value: '#10B981', bg: 'bg-green-500', text: 'text-green-50' },
+        { name: 'Kék', value: '#3B82F6', bg: 'bg-blue-500', text: 'text-blue-50' },
         { name: 'Lila', value: '#8B5CF6', bg: 'bg-purple-500', text: 'text-purple-50' },
         { name: 'Rózsaszín', value: '#EC4899', bg: 'bg-pink-500', text: 'text-pink-50' },
         { name: 'Narancs', value: '#F59E0B', bg: 'bg-orange-500', text: 'text-orange-50' },
@@ -41,7 +41,7 @@ const FamilyMemberEditModal = ({
             setEmail(editingMember.email || '');
             setBirthDate(editingMember.birthDate || '');
             setAvatar(editingMember.avatar || '👶');
-            setColor(editingMember.color || '#3B82F6');
+            setColor(editingMember.color || '#10B981');
             setRole(editingMember.role || 'adult');
             setIsChild(editingMember.isChild || false);
         } else {
@@ -50,8 +50,8 @@ const FamilyMemberEditModal = ({
             setEmail('');
             setBirthDate('');
             setAvatar('👶');
-            // Alapértelmezett szín: kék
-            setColor('#3B82F6');
+            // Alapértelmezett szín: zöld
+            setColor('#10B981');
             setRole(memberType === 'child' ? 'child' : 'adult');
             setIsChild(memberType === 'child');
         }
@@ -184,7 +184,7 @@ const FamilyMemberEditModal = ({
                                 key={index}
                                 type="button"
                                 onClick={() => setAvatar(avatarOption)}
-                                className={`p-2 text-2xl rounded-lg border-2 transition-all duration-200 ${
+                                className={`text-2xl rounded-lg border-2 transition-all duration-200 flex items-center justify-center ${
                                     avatar === avatarOption 
                                         ? 'border-blue-500 bg-blue-50 scale-110' 
                                         : 'border-gray-200 hover:border-gray-300 hover:scale-105'

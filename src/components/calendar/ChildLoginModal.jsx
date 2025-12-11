@@ -55,18 +55,18 @@ const ChildLoginModal = ({ onClose, onChildLogin, familyMembers, loading }) => {
                                 key={child.id}
                                 type="button"
                                 onClick={() => handleChildSelect(child.id)}
-                                className={`p-4 rounded-lg border-2 transition-all duration-200 text-left ${
+                                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
                                     selectedChild === child.id
                                         ? 'border-blue-500 bg-blue-50 scale-105'
                                         : 'border-gray-200 hover:border-gray-300 hover:scale-102'
                                 }`}
                             >
-                                <div className="text-3xl mb-2">{child.avatar}</div>
-                                <div className="font-medium text-gray-900">{child.name}</div>
-                                <div className="text-sm text-gray-500">
+                                <div className="text-3xl mb-2 text-center">{child.avatar}</div>
+                                <div className="font-medium text-gray-900 text-center">{child.name}</div>
+                                <div className="text-sm text-gray-500 text-center">
                                     {child.birthDate ? `${new Date(child.birthDate).toLocaleDateString('hu-HU')}` : 'Születési dátum nincs megadva'}
                                 </div>
-                                <div className="text-xs text-gray-400 capitalize">{child.role}</div>
+                                <div className="text-xs text-gray-400 capitalize text-center">{child.role}</div>
                             </button>
                         ))}
                     </div>
