@@ -1,6 +1,6 @@
 import React from 'react';
 
-const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange, userId, userDisplayName }) => {
+const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange, userId, userDisplayName, isChildMode = false }) => {
     // Órák generálása (0-23)
     const hours = Array.from({ length: 24 }, (_, i) => i);
 
@@ -75,6 +75,7 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                             : 60;
                                         const heightPercent = Math.min(100, (duration / 60) * 100);
 
+
                                         return (
                                             <div
                                                 key={event.id}
@@ -82,7 +83,9 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                     event.status === 'cancelled' 
                                                         ? 'bg-red-100 border-red-300 text-red-800 line-through' 
                                                         : event.status === 'deleted' 
-                                                        ? 'bg-gray-200 border-gray-400 text-gray-600 opacity-70' 
+                                                        ? 'bg-gray-200 border-gray-400 text-gray-600 opacity-70'
+                                                        : event.status === 'completed'
+                                                        ? ''
                                                         : ''
                                                 }`}
                                                 style={{
@@ -161,8 +164,25 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                                        {event.notes}
                                                                    </p>
                                                                )}
+                                                               {event.status === 'completed' && (
+                                                                   <div className="mt-1 flex items-center gap-2">
+                                                                       <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
+                                                                           <i className="fas fa-check-circle"></i>
+                                                                           Teljesítve
+                                                                       </span>
+                                                                       {!isChildMode && (
+                                                                           <button
+                                                                               onClick={() => onStatusChange(event, 'active')}
+                                                                               className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
+                                                                               title="Visszaállítás"
+                                                                           >
+                                                                               <i className="fas fa-undo"></i>
+                                                                           </button>
+                                                                       )}
+                                                                   </div>
+                                                               )}
                                                     </div>
-                                                    <div className="flex gap-1 ml-2">
+                                                    <div className="flex gap-1 ml-2 items-center">
                                                         <button
                                                             onClick={() => onEditEvent(event)}
                                                             className="text-blue-600 hover:text-blue-800 text-xs"
@@ -170,6 +190,15 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                         >
                                                             <i className="fas fa-edit"></i>
                                                         </button>
+                                                        {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && (
+                                                            <button
+                                                                onClick={() => onStatusChange(event, 'completed')}
+                                                                className="text-green-600 hover:text-green-800 text-xs"
+                                                                title="Teljesítve"
+                                                            >
+                                                                <i className="fas fa-check-circle"></i>
+                                                            </button>
+                                                        )}
                                                         {event.status !== 'cancelled' && (
                                                             <button
                                                                 onClick={() => onStatusChange(event, 'cancelled')}

@@ -25,6 +25,11 @@ service cloud.firestore {
       match /events/{eventId} {
         allow read, write: if isAuthenticated();
       }
+      
+      // Member points (gamification)
+      match /member_points/{memberId} {
+        allow read, write: if isAuthenticated();
+      }
     }
     
     // Family listing

@@ -14,6 +14,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const [status, setStatus] = useState(event?.status || 'active');
     const [cancellationReason, setCancellationReason] = useState(event?.cancellationReason || '');
     const [showAvatar, setShowAvatar] = useState(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
+    const [points, setPoints] = useState(event?.points || 10); // Pontok az esemény teljesítéséért (alapértelmezett: 10)
 
     // Ismétlődéshez kapcsolódó állapotok
     const [recurrenceType, setRecurrenceType] = useState(event?.recurrenceType || 'none'); // 'none', 'weekly'
@@ -51,6 +52,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setStatus(event.status || 'active');
             setCancellationReason(event.cancellationReason || '');
             setShowAvatar(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
+            setPoints(event.points || 10); // Alapértelmezett: 10 pont
             
             // Ha ismétlődő esemény előfordulása, az eredeti esemény recurrenceType-ját használjuk
             // Az eredeti esemény recurrenceType-ját kell használni, hogy látszódjon, hogy ismétlődő
@@ -84,6 +86,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setNotes('');
             setStatus('active');
             setCancellationReason('');
+            setPoints(10); // Alapértelmezett: 10 pont
             setRecurrenceType('none');
             setStartDate(new Date().toISOString().split('T')[0]);
             setEndDate('');
@@ -230,6 +233,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             status: status, // Használjuk a formban beállított státuszt
             cancellationReason: status === 'cancelled' ? cancellationReason : null, // Lemondás oka (csak ha lemondott)
             showAvatar: showAvatar, // Avatar megjelenítése a naptárban
+            points: points, // Pontok az esemény teljesítéséért
             exceptions: event?.exceptions || [], // Megőrizzük a meglévő kivételeket
             reminders: {
                 enabled: remindersEnabled,
@@ -444,6 +448,32 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                         className="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     ></textarea>
                 </div>
+
+                {/* Pontok beállítása - csak ha gyerekhez van hozzárendelve */}
+                {assignedTo && (() => {
+                    const assignedMember = familyMembers.find(m => m.id === assignedTo);
+                    const isChild = assignedMember?.isChild || (assignedTo && assignedTo.startsWith('user_') && userId && assignedTo === `user_${userId}` && currentUserMember?.isChild);
+                    if (isChild) {
+                        return (
+                            <div>
+                                <label htmlFor="points" className="block text-sm font-medium text-gray-700">
+                                    Pontok az esemény teljesítéséért
+                                </label>
+                                <input
+                                    type="number"
+                                    id="points"
+                                    min="0"
+                                    max="100"
+                                    value={points}
+                                    onChange={(e) => setPoints(parseInt(e.target.value) || 10)}
+                                    className="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                />
+                                <p className="mt-1 text-xs text-gray-500">Alapértelmezett: 10 pont. Beállíthatod, hogy hány pont járjon az esemény teljesítéséért.</p>
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
 
                 {/* Ismétlődés típusa */}
                 <div>

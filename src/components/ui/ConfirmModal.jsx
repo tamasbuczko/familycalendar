@@ -10,7 +10,6 @@ const ConfirmModal = ({ message, onConfirm, onCancel, showCancellationReason = f
     }, [showCancellationReason]);
     
     const handleConfirm = () => {
-        console.log("ConfirmModal: handleConfirm called", { cancellationReason, showCancellationReason });
         if (showCancellationReason) {
             onConfirm(cancellationReason || '');
         } else {

@@ -7,6 +7,10 @@ const FamilyMembersSection = ({
     onChildProfile, 
     onEditMember, 
     onDeleteMember,
+    onMemberClick,
+    selectedMemberId,
+    currentUserMember,
+    userId,
     isChildMode = false
 }) => {
     return (
@@ -40,20 +44,49 @@ const FamilyMembersSection = ({
                 )}
             </div>
             <div className="flex flex-wrap gap-2 mb-4">
-                {familyMembers.length === 0 ? (
+                {/* Jelenlegi felhasználó member rekordja (ha van) */}
+                {currentUserMember && (
+                    (() => {
+                        const memberColor = currentUserMember.color || '#8B5CF6';
+                        const memberAvatar = currentUserMember.avatar || '👤';
+                        const memberId = currentUserMember.id;
+                        const isSelected = selectedMemberId === memberId;
+                        return (
+                            <div key={memberId} className="group relative">
+                                <span 
+                                    onClick={() => onMemberClick && onMemberClick(memberId)}
+                                    className={`text-sm font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit cursor-pointer ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
+                                    style={{ 
+                                        backgroundColor: isSelected ? `${memberColor}40` : `${memberColor}20`, 
+                                        color: memberColor,
+                                        border: `1px solid ${memberColor}40`,
+                                        ringColor: memberColor
+                                    }}
+                                >
+                                    <span className="text-lg">{memberAvatar}</span>
+                                    <span className="whitespace-nowrap">{currentUserMember.name}</span>
+                                </span>
+                            </div>
+                        );
+                    })()
+                )}
+                {familyMembers.length === 0 && !currentUserMember ? (
                     <p className="text-gray-500">Még nincsenek családtagok hozzáadva.</p>
                 ) : (
                     familyMembers.map(member => {
                         const memberColor = member.color || '#8B5CF6'; // Alapértelmezett lila, ha nincs szín
                         const memberAvatar = member.avatar || '👤';
+                        const isSelected = selectedMemberId === member.id;
                         return (
                             <div key={member.id} className="group relative">
                                 <span 
-                                    className="text-sm font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit"
+                                    onClick={() => onMemberClick && onMemberClick(member.id)}
+                                    className={`text-sm font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit cursor-pointer ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
                                     style={{ 
-                                        backgroundColor: `${memberColor}20`, 
+                                        backgroundColor: isSelected ? `${memberColor}40` : `${memberColor}20`, 
                                         color: memberColor,
-                                        border: `1px solid ${memberColor}40`
+                                        border: `1px solid ${memberColor}40`,
+                                        ringColor: memberColor
                                     }}
                                 >
                                     <span className="text-lg">{memberAvatar}</span>
@@ -61,7 +94,10 @@ const FamilyMembersSection = ({
                                     {!isChildMode && (
                                         <>
                                             <button
-                                                onClick={() => onEditMember(member)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onEditMember(member);
+                                                }}
                                                 className="opacity-0 group-hover:opacity-100 transition-all duration-200 hover:scale-110 w-0 group-hover:w-4 overflow-hidden"
                                                 style={{ color: memberColor }}
                                                 title="Családtag szerkesztése"
@@ -69,7 +105,10 @@ const FamilyMembersSection = ({
                                                 <i className="fas fa-edit"></i>
                                             </button>
                                             <button
-                                                onClick={() => onDeleteMember(member.id, member.name)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteMember(member.id, member.name);
+                                                }}
                                                 className="opacity-0 group-hover:opacity-100 transition-all duration-200 text-red-600 hover:text-red-800 font-bold text-xs hover:scale-110 w-0 group-hover:w-4 overflow-hidden"
                                                 title="Családtag törlése"
                                             >

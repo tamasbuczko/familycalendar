@@ -76,7 +76,11 @@ const ModalsContainer = ({
     childSession,
     
     // Family data
-    familyData
+    familyData,
+    
+    // Database props
+    db,
+    familyId
 }) => {
     // Body scroll kezelése modal megnyitáskor
     useEffect(() => {
@@ -201,6 +205,8 @@ const ModalsContainer = ({
                     familyData={familyData}
                     currentUserMember={currentUserMember}
                     userId={userId}
+                    db={db}
+                    familyId={familyId}
                 />
                 );
             })()}

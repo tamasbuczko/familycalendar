@@ -8,17 +8,21 @@ export const useCalendarUtils = () => {
 
         const days = [];
         if (viewType === 'day') {
-            days.push(new Date(date));
+            const dayDate = new Date(date);
+            dayDate.setHours(0, 0, 0, 0);
+            days.push(dayDate);
         } else if (viewType === 'week') {
             for (let i = 0; i < 7; i++) {
-                const day = new Date(startOfWeek);
-                day.setDate(startOfWeek.getDate() + i);
+                const day = new Date(startOfWeek.getTime());
+                day.setDate(day.getDate() + i);
+                day.setHours(0, 0, 0, 0);
                 days.push(day);
             }
         } else if (viewType === 'weekdays-only') {
             for (let i = 0; i < 7; i++) {
-                const day = new Date(startOfWeek);
-                day.setDate(startOfWeek.getDate() + i);
+                const day = new Date(startOfWeek.getTime());
+                day.setDate(day.getDate() + i);
+                day.setHours(0, 0, 0, 0);
                 if (day.getDay() !== 0 && day.getDay() !== 6) { // 0 = Vasárnap, 6 = Szombat
                     days.push(day);
                 }
@@ -49,22 +53,7 @@ export const useCalendarUtils = () => {
         allEvents.forEach(event => {
             // Ne jelenítsük meg a törölt eseményeket (kivéve, ha van kivétel)
             if (event.status === 'deleted') {
-                console.log("calendarUtils: Skipping deleted event", {
-                    eventId: event.id,
-                    eventName: event.name,
-                    recurrenceType: event.recurrenceType
-                });
                 return; // Kihagyjuk a törölt eseményeket
-            }
-            
-            // Debug log ismétlődő eseményekhez
-            if (event.recurrenceType === 'weekly') {
-                console.log("calendarUtils: Processing recurring event", {
-                    eventId: event.id,
-                    eventName: event.name,
-                    exceptionsCount: event.exceptions?.length || 0,
-                    exceptions: event.exceptions?.map(ex => ({ date: ex.date, status: ex.status })) || []
-                });
             }
             
             if (event.recurrenceType === 'none') {
@@ -97,44 +86,46 @@ export const useCalendarUtils = () => {
                             const dayDateString = day.toISOString().split('T')[0];
                             const exception = event.exceptions?.find(ex => {
                                 // Biztosítjuk, hogy mindkét dátum string formátumban legyen
-                                const exDate = typeof ex.date === 'string' ? ex.date : (ex.date instanceof Date ? ex.date.toISOString().split('T')[0] : null);
-                                const matches = exDate === dayDateString;
-                                if (matches) {
-                                    console.log("calendarUtils: Found exception for date", {
-                                        dayDateString,
-                                        exDate,
-                                        exceptionStatus: ex.status,
-                                        exception: ex
-                                    });
+                                let exDate = ex.date;
+                                if (exDate instanceof Date) {
+                                    exDate = exDate.toISOString().split('T')[0];
+                                } else if (typeof exDate === 'string') {
+                                    // Ha már string, csak a dátum részt vesszük (YYYY-MM-DD)
+                                    exDate = exDate.split('T')[0];
+                                } else {
+                                    exDate = null;
                                 }
-                                return matches;
+                                
+                                return exDate === dayDateString;
                             });
-                            const occurrenceStatus = exception ? exception.status : event.status;
+                            // Ha van exception, az exception status-át használjuk, különben az eredeti esemény status-át
+                            const occurrenceStatus = exception ? (exception.status || event.status) : event.status;
                             
-                            // Debug log, ha deleted státuszú
-                            if (occurrenceStatus === 'deleted') {
-                                console.log("calendarUtils: Skipping deleted occurrence", {
-                                    eventId: event.id,
-                                    dayDateString,
-                                    hasException: !!exception,
-                                    exceptionStatus: exception?.status,
-                                    eventStatus: event.status
-                                });
-                            }
 
                             if (occurrenceStatus !== 'deleted') { // Ne jelenítsük meg, ha véglegesen törölve van erre az előfordulásra
                                 // Ha van kivétel, alkalmazzuk az összes kivétel mezőt
                                 const eventData = exception ? { ...event, ...exception } : event;
                                 
-                                displayEvents.push({
+                                // FONTOS: Az occurrenceStatus-t használjuk a status mezőbe, nem az eventData.status-t
+                                // mert az eventData.status lehet, hogy nem frissült az exception status-ával
+                                // Normalizáljuk a dátumot helyi időzónában (00:00:00)
+                                // A day objektum már normalizálva van (00:00:00 helyi időzónában)
+                                // De biztosítjuk, hogy a displayDate is helyi időzónában legyen
+                                const normalizedDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0, 0);
+                                
+                                const dayDateString = normalizedDay.toISOString().split('T')[0]; // YYYY-MM-DD formátum
+                                
+                                const displayEvent = {
                                     ...eventData,
-                                    id: `${event.id}-${day.toISOString().split('T')[0]}`, // Egyedi ID ehhez az előforduláshoz
-                                    displayDate: day,
-                                    date: day.toISOString().split('T')[0], // Konziszencia miatt az egyszeri eseményekkel
-                                    status: occurrenceStatus,
+                                    id: `${event.id}-${dayDateString}`, // Egyedi ID ehhez az előforduláshoz
+                                    displayDate: normalizedDay, // Normalizált dátum helyi időzónában
+                                    date: dayDateString, // Konziszencia miatt az egyszeri eseményekkel
+                                    status: occurrenceStatus, // FONTOS: Az occurrenceStatus-t használjuk
                                     isRecurringOccurrence: true,
                                     originalEventId: event.id, // Hivatkozás az eredeti ismétlődő eseményre
-                                });
+                                };
+                                
+                                displayEvents.push(displayEvent);
                             }
                         }
                     }

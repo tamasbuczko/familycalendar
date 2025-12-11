@@ -14,7 +14,9 @@ const CalendarView = ({
     onDeleteEvent,
     onStatusChange,
     userId,
-    userDisplayName
+    userDisplayName,
+    currentUserMember,
+    isChildMode = false
 }) => {
     const { getDaysForView, getEventsForDisplay, navigateDays } = useCalendarUtils();
     const daysToDisplay = getDaysForView(currentDate, currentView);
@@ -27,11 +29,23 @@ const CalendarView = ({
 
     // Ha napi nézet, használjuk a DayView komponenst
     if (currentView === 'day') {
+        // A napi nézetben is ugyanazt a dátumot használjuk, mint amit a getDaysForView generál
+        const currentDayForFilter = daysToDisplay[0]; // Napi nézetben csak egy nap van
         const dayEvents = eventsForDisplay.filter(event => {
-            const eventDate = new Date(event.displayDate);
-            const currentDay = new Date(currentDate);
-            return eventDate.toDateString() === currentDay.toDateString();
+            // A displayDate lehet Date objektum vagy string
+            const eventDate = event.displayDate instanceof Date 
+                ? new Date(event.displayDate.getTime()) 
+                : new Date(event.displayDate);
+            const filterDate = new Date(currentDayForFilter);
+            // Mindkét dátumot ugyanúgy normalizáljuk (00:00:00) helyi időzónában
+            eventDate.setHours(0, 0, 0, 0);
+            filterDate.setHours(0, 0, 0, 0);
+            // Dátum stringekkel hasonlítjuk össze, hogy elkerüljük az időzóna problémákat
+            const eventDateStr = eventDate.toISOString().split('T')[0];
+            const filterDateStr = filterDate.toISOString().split('T')[0];
+            return eventDateStr === filterDateStr;
         });
+        
 
         return (
             <div className="bg-white p-6 rounded-lg shadow-md w-full">
@@ -84,6 +98,7 @@ const CalendarView = ({
                     onStatusChange={onStatusChange}
                     userId={userId}
                     userDisplayName={userDisplayName}
+                    isChildMode={isChildMode}
                 />
 
                 <button
@@ -147,13 +162,27 @@ const CalendarView = ({
                         </h3>
                         <div className="flex-grow space-y-2">
                             {eventsForDisplay
-                                .filter(event => event.displayDate.toDateString() === day.toDateString())
+                                .filter(event => {
+                                    // A displayDate lehet Date objektum vagy string
+                                    const eventDate = event.displayDate instanceof Date 
+                                        ? new Date(event.displayDate.getTime()) 
+                                        : new Date(event.displayDate);
+                                    const filterDate = new Date(day);
+                                    // Mindkét dátumot ugyanúgy normalizáljuk (00:00:00) helyi időzónában
+                                    eventDate.setHours(0, 0, 0, 0);
+                                    filterDate.setHours(0, 0, 0, 0);
+                                    // Dátum stringekkel hasonlítjuk össze, hogy elkerüljük az időzóna problémákat
+                                    const eventDateStr = eventDate.toISOString().split('T')[0];
+                                    const filterDateStr = filterDate.toISOString().split('T')[0];
+                                    return eventDateStr === filterDateStr;
+                                })
                                 .map(event => (
                                     <div
                                         key={event.id}
                                         className={`p-3 rounded-lg shadow-sm border ${
                                             event.status === 'cancelled' ? 'bg-red-100 border-red-300 text-red-800 line-through' :
                                             event.status === 'deleted' ? 'bg-gray-200 border-gray-400 text-gray-600 opacity-70' :
+                                            event.status === 'completed' ? '' :
                                             ''
                                         }`}
                                         style={event.status !== 'cancelled' && event.status !== 'deleted' ? {
@@ -216,6 +245,23 @@ const CalendarView = ({
                                         {event.notes && (
                                             <p className="text-xs text-gray-500 mt-1 italic">Megjegyzés: {event.notes}</p>
                                         )}
+                                        {event.status === 'completed' && (
+                                            <div className="mt-2 flex items-center gap-2">
+                                                <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
+                                                    <i className="fas fa-check-circle"></i>
+                                                    Teljesítve
+                                                </span>
+                                                {!isChildMode && (
+                                                    <button
+                                                        onClick={() => onStatusChange(event, 'active')}
+                                                        className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                                                        title="Visszaállítás"
+                                                    >
+                                                        <i className="fas fa-undo h-3 w-3 inline-block"></i>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        )}
                                         <div className="flex justify-end gap-2 mt-2">
                                             <button
                                                 onClick={() => onEditEvent(event)}
@@ -224,6 +270,15 @@ const CalendarView = ({
                                             >
                                                 <i className="fas fa-edit h-4 w-4 inline-block"></i>
                                             </button>
+                                            {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && (
+                                                <button
+                                                    onClick={() => onStatusChange(event, 'completed')}
+                                                    className="text-green-600 hover:text-green-800 text-sm font-medium"
+                                                    title="Teljesítve"
+                                                >
+                                                    <i className="fas fa-check-circle h-4 w-4 inline-block"></i>
+                                                </button>
+                                            )}
                                             {event.status !== 'cancelled' && (
                                                 <button
                                                     onClick={() => onStatusChange(event, 'cancelled')}

@@ -10,6 +10,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
     const [events, setEvents] = useState([]);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [currentView, setCurrentView] = useState('week');
+    const [selectedMemberId, setSelectedMemberId] = useState(null); // Kiválasztott családtag ID-ja szűréshez
     const [familyData, setFamilyData] = useState(null);
     const [message, setMessage] = useState('');
 
@@ -283,15 +284,6 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         const unsubscribe = onSnapshot(eventsColRef, (snapshot) => {
             const fetchedEvents = snapshot.docs.map(doc => {
                 const data = doc.data();
-                // Debug log ismétlődő eseményekhez
-                if (data.recurrenceType === 'weekly') {
-                    console.log("CalendarStateManager: Loaded recurring event", {
-                        eventId: doc.id,
-                        eventName: data.name,
-                        exceptionsCount: data.exceptions?.length || 0,
-                        exceptions: data.exceptions?.map(ex => ({ date: ex.date, dateType: typeof ex.date, status: ex.status })) || []
-                    });
-                }
                 return { id: doc.id, ...data };
             });
             setEvents(fetchedEvents);
@@ -424,6 +416,8 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setCurrentDate,
         currentView,
         setCurrentView,
+        selectedMemberId,
+        setSelectedMemberId,
         familyData,
         message,
         

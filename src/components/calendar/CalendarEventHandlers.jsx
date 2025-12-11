@@ -1,8 +1,9 @@
 import { addDoc, updateDoc, deleteDoc, doc, collection, setDoc, getDoc } from 'firebase/firestore';
 import { firebaseConfig } from '../../firebaseConfig.js';
+import { addPointsForEventCompletion, removePointsForEventCompletion } from '../../utils/gamificationUtils.js';
 
 // Event handler függvények a CalendarApp számára
-export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setState) => {
+export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setState, childSession = null, isChildMode = false) => {
     const {
         showTemporaryMessage,
         resetEventModal,
@@ -57,7 +58,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                 
                 if (originalEventDoc.exists()) {
                     const originalEvent = originalEventDoc.data();
-                    const exceptions = originalEvent.exceptions || [];
+                    let exceptions = originalEvent.exceptions || [];
                     
                     // A dátum meghatározása: eventData.date, displayDate, vagy state.editingEvent-ből
                     let eventDate = eventData.date;
@@ -332,27 +333,69 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
 
     // Esemény státuszának módosítása - egységes logika egyszeri és ismétlődő eseményekre
     const handleChangeEventStatus = async (event, newStatus, cancellationReason = '') => {
-        console.log("CalendarEventHandlers: handleChangeEventStatus called", {
-            eventId: event.id,
-            eventName: event.name,
-            newStatus,
-            cancellationReason: cancellationReason || '(empty)',
-            cancellationReasonType: typeof cancellationReason,
-            cancellationReasonLength: cancellationReason ? cancellationReason.length : 0,
-            isRecurringOccurrence: event.isRecurringOccurrence
-        });
-        
         if (!db || !userFamilyId) return;
 
         try {
+            // Meghatározzuk a gyerek member ID-ját (pont hozzáadáshoz vagy levonáshoz)
+            let memberIdForPoints = null;
+            if ((newStatus === 'completed' || newStatus === 'active') && event.assignedTo) {
+                // Először az esemény assignedTo mezőjét használjuk
+                if (event.assignedTo && !event.assignedTo.startsWith('user_')) {
+                    // Ha az assignedTo egy member ID, azt használjuk
+                    memberIdForPoints = event.assignedTo;
+                } else if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
+                    // Ha az esemény a jelenlegi felhasználóhoz van hozzárendelve (user_${userId} formátum)
+                    // és van currentUserMember rekord, akkor azt használjuk
+                    // Ez a rész a CalendarStateManager-ben van kezelve, de itt is ellenőrizhetjük
+                    // Ha gyerek módban vagyunk, akkor a childSession-ból vesszük
+                    if (isChildMode && childSession) {
+                        memberIdForPoints = childSession.childId;
+                    }
+                    // Ha szülő módban vagyunk, akkor nem adunk pontot (mert a szülő nem gyerek)
+                }
+                
+                // Ha gyerek módban vagyunk, ellenőrizzük, hogy az esemény valóban a bejelentkezett gyerekhez van-e hozzárendelve
+                if (isChildMode && childSession) {
+                    // Ha az esemény nem a bejelentkezett gyerekhez van hozzárendelve, ne adjunk pontot
+                    if (event.assignedTo !== childSession.childId && event.assignedTo !== `user_${userId}`) {
+                        memberIdForPoints = null; // Ne adjunk pontot, ha más gyerekhez van hozzárendelve
+                    } else if (event.assignedTo === `user_${userId}`) {
+                        // Ha user_${userId} formátumú, akkor a childSession.childId-t használjuk
+                        memberIdForPoints = childSession.childId;
+                    }
+                }
+            }
+            
             // Ha ismétlődő esemény előfordulása, kivételt hozunk létre
-            if (event.isRecurringOccurrence && event.originalEventId) {
-                const originalEventRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, event.originalEventId);
+            // Az event.id formátuma lehet: 'originalEventId-YYYY-MM-DD' (ismétlődő esemény előfordulása)
+            // Vagy lehet: 'originalEventId' (egyszeri esemény vagy eredeti ismétlődő esemény)
+            let isRecurringOccurrence = event.isRecurringOccurrence;
+            let originalEventId = event.originalEventId;
+            
+            // Ha nincs explicit isRecurringOccurrence, de az ID tartalmaz dátumot, akkor ismétlődő esemény előfordulása
+            if (!isRecurringOccurrence && !originalEventId && event.id && event.id.includes('-')) {
+                // Az ID formátuma: 'originalEventId-YYYY-MM-DD'
+                const parts = event.id.split('-');
+                if (parts.length >= 4) {
+                    // Ellenőrizzük, hogy az utolsó 3 rész dátum-e (YYYY-MM-DD)
+                    const year = parts[parts.length - 3];
+                    const month = parts[parts.length - 2];
+                    const day = parts[parts.length - 1];
+                    if (year && month && day && year.length === 4 && month.length === 2 && day.length === 2) {
+                        // Ez egy ismétlődő esemény előfordulása
+                        isRecurringOccurrence = true;
+                        originalEventId = parts.slice(0, -3).join('-'); // Az eredeti event ID (előfordulhat, hogy tartalmaz kötőjelet)
+                    }
+                }
+            }
+            
+            if (isRecurringOccurrence && originalEventId) {
+                const originalEventRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`, originalEventId);
                 const originalEventDoc = await getDoc(originalEventRef);
                 
                 if (originalEventDoc.exists()) {
                     const originalEvent = originalEventDoc.data();
-                    const exceptions = originalEvent.exceptions || [];
+                    let exceptions = originalEvent.exceptions || [];
                     
                     // A dátum meghatározása - fontos, hogy konzisztens formátumban legyen (YYYY-MM-DD)
                     let eventDate = event.date;
@@ -370,40 +413,79 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                         return;
                     }
                     
-                    console.log("CalendarEventHandlers: Changing status of recurring occurrence", {
-                        originalEventId: event.originalEventId,
-                        eventDate,
-                        newStatus,
-                        currentExceptions: exceptions.length
-                    });
-                    
                     // Ellenőrizzük, hogy már van-e kivétel erre a dátumra
-                    const existingExceptionIndex = exceptions.findIndex(ex => ex.date === eventDate);
+                    // FONTOS: A dátum formátuma YYYY-MM-DD string kell legyen mindkét oldalon
+                    const existingExceptionIndex = exceptions.findIndex(ex => {
+                        // Normalizáljuk az exception dátumát
+                        let exDate = ex.date;
+                        if (exDate instanceof Date) {
+                            exDate = exDate.toISOString().split('T')[0];
+                        } else if (typeof exDate === 'string') {
+                            exDate = exDate.split('T')[0]; // Csak a dátum részt vesszük
+                        }
+                        // Normalizáljuk az eventDate-et is
+                        let normalizedEventDate = eventDate;
+                        if (normalizedEventDate instanceof Date) {
+                            normalizedEventDate = normalizedEventDate.toISOString().split('T')[0];
+                        } else if (typeof normalizedEventDate === 'string') {
+                            normalizedEventDate = normalizedEventDate.split('T')[0];
+                        }
+                        return exDate === normalizedEventDate;
+                    });
                     
                     if (existingExceptionIndex >= 0) {
                         // Ha már van kivétel, frissítjük a státuszt
-                        exceptions[existingExceptionIndex] = {
+                        const updatedException = {
                             ...exceptions[existingExceptionIndex],
+                            points: event.points !== undefined ? event.points : (exceptions[existingExceptionIndex].points || 10), // Pontok megtartása vagy frissítése
                             status: newStatus,
                             cancellationReason: newStatus === 'cancelled' ? cancellationReason : (exceptions[existingExceptionIndex].cancellationReason || ''),
                             lastModified: new Date().toISOString(),
                             lastModifiedBy: userId || 'offline'
                         };
+                        
+                        // Ha teljesítve, hozzáadjuk a completed mezőket
+                        if (newStatus === 'completed') {
+                            updatedException.completedAt = new Date().toISOString();
+                            updatedException.completedBy = isChildMode ? 'child' : 'parent';
+                            updatedException.completedByUserId = isChildMode ? null : userId;
+                        } else if (newStatus !== 'completed') {
+                            // Ha nem teljesítve, töröljük a completed mezőket
+                            delete updatedException.completedAt;
+                            delete updatedException.completedBy;
+                            delete updatedException.completedByUserId;
+                        }
+                        
+                        // FONTOS: Új tömböt kell létrehoznunk, hogy a Firestore észlelje a változást
+                        const newExceptions = [...exceptions];
+                        newExceptions[existingExceptionIndex] = updatedException;
+                        exceptions = newExceptions;
                     } else {
                         // Ha nincs kivétel, hozzáadjuk az eredeti esemény adataival
-                        exceptions.push({
-                            date: eventDate,
+                        // FONTOS: A dátum formátuma YYYY-MM-DD string kell legyen
+                        const exceptionData = {
+                            date: eventDate, // YYYY-MM-DD formátumban
                             name: event.name,
                             time: event.time,
                             endTime: event.endTime,
                             location: event.location,
                             assignedTo: event.assignedTo,
                             notes: event.notes,
+                            points: event.points, // Pontok az esemény teljesítéséért
                             status: newStatus,
                             cancellationReason: newStatus === 'cancelled' ? cancellationReason : '',
                             lastModified: new Date().toISOString(),
                             lastModifiedBy: userId || 'offline'
-                        });
+                        };
+                        
+                        // Ha teljesítve, hozzáadjuk a completed mezőket
+                        if (newStatus === 'completed') {
+                            exceptionData.completedAt = new Date().toISOString();
+                            exceptionData.completedBy = isChildMode ? 'child' : 'parent';
+                            exceptionData.completedByUserId = isChildMode ? null : userId;
+                        }
+                        
+                        exceptions.push(exceptionData);
                     }
                     
                     await updateDoc(originalEventRef, {
@@ -411,6 +493,64 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                         lastModified: new Date().toISOString(),
                         lastModifiedBy: userId || 'offline'
                     });
+                    
+                    // Ha "completed" státuszra állítjuk, adjunk pontokat (ismétlődő esemény előfordulásnál)
+                    if (newStatus === 'completed' && memberIdForPoints) {
+                        // Ellenőrizzük, hogy a member gyerek-e
+                        const membersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
+                        const memberDocRef = doc(membersColRef, memberIdForPoints);
+                        const memberDoc = await getDoc(memberDocRef);
+                        
+                        if (memberDoc.exists()) {
+                            const memberData = memberDoc.data();
+                            if (memberData.isChild) {
+                                // Meghatározzuk, hogy ki jelölte meg (gyerek vagy szülő)
+                                const completedBy = isChildMode ? 'child' : 'parent';
+                                const completedByUserId = isChildMode ? null : userId;
+                                
+                                // Pontok hozzáadása
+                                const points = await addPointsForEventCompletion(
+                                    db,
+                                    userFamilyId,
+                                    memberIdForPoints,
+                                    event,
+                                    completedBy,
+                                    completedByUserId
+                                );
+                                
+                                if (points > 0) {
+                                    showTemporaryMessage(`✅ Esemény teljesítve! +${points} pont! 🎉`);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Ha "active" státuszra állítjuk (visszavonjuk a teljesítést), vonjuk le a pontokat (ismétlődő esemény előfordulásnál)
+                    if (newStatus === 'active' && event.status === 'completed' && memberIdForPoints) {
+                        // Ellenőrizzük, hogy a member gyerek-e
+                        const membersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
+                        const memberDocRef = doc(membersColRef, memberIdForPoints);
+                        const memberDoc = await getDoc(memberDocRef);
+                        
+                        if (memberDoc.exists()) {
+                            const memberData = memberDoc.data();
+                            if (memberData.isChild) {
+                                // Pontok levonása
+                                const points = await removePointsForEventCompletion(
+                                    db,
+                                    userFamilyId,
+                                    memberIdForPoints,
+                                    event
+                                );
+                                
+                                if (points > 0) {
+                                    showTemporaryMessage(`Esemény teljesítése visszavonva. -${points} pont.`);
+                                    return;
+                                }
+                            }
+                        }
+                    }
                     
                     showTemporaryMessage(`Esemény előfordulás státusza sikeresen ${newStatus}-re módosítva!`);
                     return;
@@ -437,17 +577,90 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                 } else if (newStatus === 'active') {
                     // Ha aktívvá teszünk, töröljük a cancellationReason-t
                     updateData.cancellationReason = null;
+                } else if (newStatus === 'completed') {
+                    // Ha teljesítve, töröljük a cancellationReason-t és beállítjuk a completedAt mezőt
+                    updateData.cancellationReason = null;
+                    updateData.completedAt = new Date().toISOString();
+                    updateData.completedBy = isChildMode ? 'child' : 'parent';
+                    updateData.completedByUserId = isChildMode ? null : userId;
                 }
                 await updateDoc(eventDocRef, updateData);
             } else {
-                // Ha nem létezik, deleted státuszra állítjuk
-                await setDoc(eventDocRef, { 
+                // Ha nem létezik, létrehozzuk az új státusszal
+                const newEventData = {
                     ...event,
                     status: newStatus,
                     cancellationReason: newStatus === 'cancelled' ? cancellationReason : null,
                     lastModified: new Date().toISOString(),
                     lastModifiedBy: userId || 'offline'
-                }, { merge: true });
+                };
+                
+                // Ha teljesítve, hozzáadjuk a completed mezőket
+                if (newStatus === 'completed') {
+                    newEventData.completedAt = new Date().toISOString();
+                    newEventData.completedBy = isChildMode ? 'child' : 'parent';
+                    newEventData.completedByUserId = isChildMode ? null : userId;
+                }
+                
+                await setDoc(eventDocRef, newEventData, { merge: true });
+            }
+            
+            // Ha "completed" státuszra állítjuk, adjunk pontokat (nem ismétlődő eseményeknél)
+            if (newStatus === 'completed' && memberIdForPoints) {
+                // Ellenőrizzük, hogy a member gyerek-e
+                const membersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
+                const memberDocRef = doc(membersColRef, memberIdForPoints);
+                const memberDoc = await getDoc(memberDocRef);
+                
+                if (memberDoc.exists()) {
+                    const memberData = memberDoc.data();
+                    if (memberData.isChild) {
+                        // Meghatározzuk, hogy ki jelölte meg (gyerek vagy szülő)
+                        const completedBy = isChildMode ? 'child' : 'parent';
+                        const completedByUserId = isChildMode ? null : userId;
+                        
+                        // Pontok hozzáadása
+                        const points = await addPointsForEventCompletion(
+                            db,
+                            userFamilyId,
+                            memberIdForPoints,
+                            event,
+                            completedBy,
+                            completedByUserId
+                        );
+                        
+                        if (points > 0) {
+                            showTemporaryMessage(`✅ Esemény teljesítve! +${points} pont! 🎉`);
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // Ha "active" státuszra állítjuk (visszavonjuk a teljesítést), vonjuk le a pontokat (nem ismétlődő eseményeknél)
+            if (newStatus === 'active' && event.status === 'completed' && memberIdForPoints) {
+                // Ellenőrizzük, hogy a member gyerek-e
+                const membersColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/members`);
+                const memberDocRef = doc(membersColRef, memberIdForPoints);
+                const memberDoc = await getDoc(memberDocRef);
+                
+                if (memberDoc.exists()) {
+                    const memberData = memberDoc.data();
+                    if (memberData.isChild) {
+                        // Pontok levonása
+                        const points = await removePointsForEventCompletion(
+                            db,
+                            userFamilyId,
+                            memberIdForPoints,
+                            event
+                        );
+                        
+                        if (points > 0) {
+                            showTemporaryMessage(`Esemény teljesítése visszavonva. -${points} pont.`);
+                            return;
+                        }
+                    }
+                }
             }
             
             showTemporaryMessage(`Esemény státusza sikeresen ${newStatus}-re módosítva!`);

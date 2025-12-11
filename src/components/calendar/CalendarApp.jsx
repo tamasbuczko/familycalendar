@@ -32,6 +32,9 @@ const CalendarApp = ({ onLogout }) => {
         }
     }, [userId, notifications.isSupported, notifications.permission]);
     
+    // Ellenőrizzük, hogy child módban vagyunk-e
+    const isChildMode = !!state.childSession;
+    
     // Event handler függvények a hook-kal
     const handlers = useCalendarEventHandlers(db, userId, userFamilyId, state, {
         setChildLoading: state.setChildLoading,
@@ -46,10 +49,7 @@ const CalendarApp = ({ onLogout }) => {
         setUserProfileLoading: state.setUserProfileLoading,
         resetUserProfileModal: state.resetUserProfileModal,
         setUserDisplayName: state.setUserDisplayName
-    });
-
-    // Ellenőrizzük, hogy child módban vagyunk-e
-    const isChildMode = !!state.childSession;
+    }, state.childSession, isChildMode);
     
     // Child logout funkció - szülői PIN bekérés
     const handleChildLogout = () => {
@@ -125,26 +125,21 @@ const CalendarApp = ({ onLogout }) => {
         // Először bezárjuk a modalt, ha van nyitva
         state.resetConfirmModal();
         
+        // Tároljuk az event-et és a newStatus-t, hogy az onConfirm-ben elérhető legyen
+        state.setEditingEvent({ ...event, _pendingStatus: newStatus });
+        
         // Ha lemondás, akkor a cancellationReason-t is kérjük
         if (newStatus === 'cancelled') {
-            // Tároljuk az event-et, hogy az onConfirm-ben elérhető legyen
-            state.setEditingEvent(event);
             // Dummy confirmAction, mert az onConfirm-ben közvetlenül hívjuk a handleSaveEvent-et
-            state.setConfirmAction(() => () => {
-                console.log("CalendarApp: confirmAction dummy function called");
-            });
+            state.setConfirmAction(() => () => {});
             state.setConfirmMessage(`Biztosan lemondja az eseményt: "${event.name}"?`);
             state.setShowCancellationReason(true);
         } else {
-            state.setConfirmAction(() => () => {
-                console.log("CalendarApp: confirmAction called for active status");
-                handlers.handleChangeEventStatus(event, newStatus, '');
-            });
-            state.setConfirmMessage(`Biztosan aktívvá teszi az eseményt: "${event.name}"?`);
+            state.setConfirmAction(() => () => {});
+            state.setConfirmMessage(`Biztosan ${newStatus === 'completed' ? 'teljesítetté' : 'aktívvá'} teszi az eseményt: "${event.name}"?`);
             state.setShowCancellationReason(false);
         }
         state.setShowConfirmModal(true);
-        console.log("CalendarApp: Confirm modal should be shown now");
     };
 
     return (
@@ -175,6 +170,17 @@ const CalendarApp = ({ onLogout }) => {
                     }}
                     onEditMember={handleEditMember}
                     onDeleteMember={handleDeleteMember}
+                    onMemberClick={(memberId) => {
+                        // Ha ugyanarra a tagra kattintunk, töröljük a szűrést
+                        if (state.selectedMemberId === memberId) {
+                            state.setSelectedMemberId(null);
+                        } else {
+                            state.setSelectedMemberId(memberId);
+                        }
+                    }}
+                    selectedMemberId={state.selectedMemberId}
+                    currentUserMember={state.currentUserMember}
+                    userId={userId}
                     isChildMode={isChildMode}
                 />
 
@@ -191,6 +197,9 @@ const CalendarApp = ({ onLogout }) => {
                     onStatusChange={handleStatusChangeConfirm}
                     userId={userId}
                     userDisplayName={state.userDisplayName || auth.currentUser?.displayName}
+                    selectedMemberId={state.selectedMemberId}
+                    currentUserMember={state.currentUserMember}
+                    isChildMode={isChildMode}
                 />
 
                 {/* Időjárás widget */}
@@ -230,7 +239,6 @@ const CalendarApp = ({ onLogout }) => {
                 confirmMessage={state.confirmMessage}
                 showCancellationReason={state.showCancellationReason}
                 onConfirm={(cancellationReason) => {
-                    console.log("CalendarApp: onConfirm called with cancellationReason", cancellationReason);
                     if (state.confirmAction) {
                         // Ha showCancellationReason igaz, akkor lemondás, és közvetlenül hívjuk a handleSaveEvent-et (ugyanúgy, mint szerkesztéskor)
                         if (state.showCancellationReason && state.editingEvent) {
@@ -248,7 +256,6 @@ const CalendarApp = ({ onLogout }) => {
                                     status: 'cancelled', // Fontos: beállítjuk a státuszt is
                                     saveAsException: true
                                 };
-                                console.log("CalendarApp: Saving cancellation reason as exception", eventData);
                                 // Frissítjük a state.editingEvent-et, hogy a handleSaveEvent elérje
                                 state.setEditingEvent({ ...event, cancellationReason: cancellationReason || '', status: 'cancelled' });
                                 handlers.handleSaveEvent(eventData);
@@ -269,14 +276,24 @@ const CalendarApp = ({ onLogout }) => {
                                     startDate: event.startDate,
                                     endDate: event.endDate
                                 };
-                                console.log("CalendarApp: Saving cancellation reason for single event", eventData);
                                 handlers.handleSaveEvent(eventData);
                             }
                         } else {
                             // Törlés vagy más művelet esetén
-                            const actionFunction = state.confirmAction();
-                            if (actionFunction) {
-                                actionFunction();
+                            // Az event-et a state-ből vesszük, hogy biztosan tartalmazza az isRecurringOccurrence és originalEventId mezőket
+                            const eventToUpdate = state.editingEvent;
+                            if (eventToUpdate && eventToUpdate._pendingStatus) {
+                                // A _pendingStatus-t használjuk, majd töröljük
+                                const statusToSet = eventToUpdate._pendingStatus;
+                                // Létrehozunk egy másolatot, hogy ne módosítsuk az eredeti objektumot
+                                const eventCopy = { ...eventToUpdate };
+                                delete eventCopy._pendingStatus;
+                                handlers.handleChangeEventStatus(eventCopy, statusToSet, cancellationReason || '');
+                            } else {
+                                const actionFunction = state.confirmAction();
+                                if (actionFunction) {
+                                    actionFunction();
+                                }
                             }
                         }
                     }
@@ -326,6 +343,11 @@ const CalendarApp = ({ onLogout }) => {
                 // Child mode props
                 isChildMode={isChildMode}
                 childSession={state.childSession}
+                
+                // Database props
+                db={db}
+                familyId={userFamilyId}
+                userId={userId}
             />
 
             <MessageDisplay message={state.message} />

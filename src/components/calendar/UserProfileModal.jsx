@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../ui/Modal.jsx';
+import PointsDisplay from '../gamification/PointsDisplay.jsx';
 
-const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, loading, isChildMode = false, childSession = null, familyData = null, currentUserMember = null, userId = null }) => {
+const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, loading, isChildMode = false, childSession = null, familyData = null, currentUserMember = null, userId = null, db = null, familyId = null }) => {
     // Gyerek módban a gyerek adatait használjuk, szülő módban a szülő adatait
     const currentDisplayName = isChildMode ? (childSession?.childName || '') : (displayName || '');
     const currentEmail = isChildMode ? '' : (userEmail || '');
@@ -95,9 +96,24 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
         alert('Jelszó változtatás még nincs implementálva');
     };
 
+    // Meghatározzuk, hogy kinek a pontszámát kell megjeleníteni
+    const pointsMemberId = isChildMode 
+        ? childSession?.childId 
+        : (currentUserMember?.isChild ? currentUserMember.id : null);
+
     return (
         <Modal onClose={onClose} title={isChildMode ? "Gyerek Profil" : "Felhasználói Profil"}>
             <div className="space-y-6">
+                {/* Pontszám megjelenítés - csak gyerekeknek */}
+                {pointsMemberId && db && familyId && (
+                    <PointsDisplay
+                        db={db}
+                        memberId={pointsMemberId}
+                        familyId={familyId}
+                        view="profile"
+                    />
+                )}
+
                 {isChildMode ? (
                     /* Gyerek profil - csak olvasható */
                     <div className="bg-purple-50 p-4 rounded-lg">
