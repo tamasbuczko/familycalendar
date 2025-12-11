@@ -338,7 +338,6 @@ const CalendarApp = ({ onLogout }) => {
                 userProfileLoading={state.userProfileLoading}
                 familyData={state.familyData}
                 currentUserMember={state.currentUserMember} // Jelenlegi felhasználó member rekordja
-                userId={userId}
                 
                 // Child mode props
                 isChildMode={isChildMode}
@@ -347,7 +346,6 @@ const CalendarApp = ({ onLogout }) => {
                 // Database props
                 db={db}
                 familyId={userFamilyId}
-                userId={userId}
             />
 
             <MessageDisplay message={state.message} />
