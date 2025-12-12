@@ -15,6 +15,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const [cancellationReason, setCancellationReason] = useState(event?.cancellationReason || '');
     const [showAvatar, setShowAvatar] = useState(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
     const [points, setPoints] = useState(event?.points || 10); // Pontok az esemény teljesítéséért (alapértelmezett: 10)
+    const [visibility, setVisibility] = useState(event?.visibility || 'family'); // Láthatóság: 'only_me', 'family', 'known_families'
 
     // Ismétlődéshez kapcsolódó állapotok
     const [recurrenceType, setRecurrenceType] = useState(event?.recurrenceType || 'none'); // 'none', 'weekly'
@@ -30,6 +31,14 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const [reminderTimes, setReminderTimes] = useState(event?.reminders?.times || [10, 30]); // percek az esemény előtt
     const [reminderSound, setReminderSound] = useState(event?.reminders?.sound || true);
     const [reminderVibration, setReminderVibration] = useState(event?.reminders?.vibration || true);
+    const [isRemindersAccordionOpen, setIsRemindersAccordionOpen] = useState(false);
+    const [notificationRecipients, setNotificationRecipients] = useState(() => {
+        // Alapértelmezett: a létrehozó (userId), ha nincs beállítva
+        if (event?.notificationRecipients && event.notificationRecipients.length > 0) {
+            return event.notificationRecipients;
+        }
+        return userId ? [userId] : [];
+    });
 
     // Értesítések hook
     const notifications = useNotifications(userId);
@@ -53,6 +62,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setCancellationReason(event.cancellationReason || '');
             setShowAvatar(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
             setPoints(event.points || 10); // Alapértelmezett: 10 pont
+            setVisibility(event.visibility || 'family'); // Alapértelmezett: család
             
             // Ha ismétlődő esemény előfordulása, az eredeti esemény recurrenceType-ját használjuk
             // Az eredeti esemény recurrenceType-ját kell használni, hogy látszódjon, hogy ismétlődő
@@ -72,6 +82,9 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setReminderTimes(event.reminders?.times || [10, 30]);
             setReminderSound(event.reminders?.sound !== undefined ? event.reminders.sound : true);
             setReminderVibration(event.reminders?.vibration !== undefined ? event.reminders.vibration : true);
+            setNotificationRecipients(event.notificationRecipients && event.notificationRecipients.length > 0 
+                ? event.notificationRecipients 
+                : (userId ? [userId] : []));
             
             // Ha ismétlődő esemény előfordulását szerkesztjük, alapértelmezetten ne legyen kivétel
             setSaveAsException(false);
@@ -87,6 +100,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setStatus('active');
             setCancellationReason('');
             setPoints(10); // Alapértelmezett: 10 pont
+            setVisibility('family'); // Alapértelmezett: család
             setRecurrenceType('none');
             setStartDate(new Date().toISOString().split('T')[0]);
             setEndDate('');
@@ -95,6 +109,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setReminderTimes([10, 30]);
             setReminderSound(true);
             setReminderVibration(true);
+            setNotificationRecipients(userId ? [userId] : []);
         }
     }, [event]);
 
@@ -194,6 +209,8 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                     date: event.date,
                     status: 'cancelled', // Megtartjuk a lemondott státuszt
                     cancellationReason: cancellationReason,
+                    visibility: event.visibility || 'family', // Megtartjuk a láthatóság beállítást
+                    notificationRecipients: event.notificationRecipients || [], // Megtartjuk az értesítés kapó személyeket
                     recurrenceType: event.recurrenceType || 'none',
                     startDate: event.startDate,
                     endDate: event.endDate,
@@ -222,6 +239,13 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             console.log("EventModal: Validation failed - endTime before time"); // Debug log
             return;
         }
+        
+        // Ha az értesítés be van kapcsolva, legalább egy személyt ki kell választani
+        if (remindersEnabled && (!notificationRecipients || notificationRecipients.length === 0)) {
+            showTemporaryMessage('Ha az értesítés be van kapcsolva, legalább egy személyt ki kell választani, aki értesítést kapjon.');
+            console.log("EventModal: Validation failed - no notification recipients selected"); // Debug log
+            return;
+        }
 
         const eventData = {
             name,
@@ -234,13 +258,15 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             cancellationReason: status === 'cancelled' ? cancellationReason : null, // Lemondás oka (csak ha lemondott)
             showAvatar: showAvatar, // Avatar megjelenítése a naptárban
             points: points, // Pontok az esemény teljesítéséért
+            visibility: visibility, // Láthatóság beállítása
             exceptions: event?.exceptions || [], // Megőrizzük a meglévő kivételeket
             reminders: {
                 enabled: remindersEnabled,
                 times: reminderTimes,
                 sound: reminderSound,
                 vibration: reminderVibration
-            }
+            },
+            notificationRecipients: remindersEnabled ? notificationRecipients : [] // Csak akkor mentjük, ha az értesítés be van kapcsolva
         };
 
         // Ha szerkesztünk egy eseményt, adjuk hozzá az ID-t és az originalEventId-t (ha ismétlődő előfordulás)
@@ -475,6 +501,28 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                     return null;
                 })()}
 
+                {/* Láthatóság beállítása */}
+                <div>
+                    <label htmlFor="visibility" className="block text-sm font-medium text-gray-700">
+                        Láthatóság
+                    </label>
+                    <select
+                        id="visibility"
+                        value={visibility}
+                        onChange={(e) => setVisibility(e.target.value)}
+                        className="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <option value="only_me">Csak én</option>
+                        <option value="family">Család</option>
+                        <option value="known_families" disabled>Ismerős családok is (hamarosan)</option>
+                    </select>
+                    <p className="mt-1 text-xs text-gray-500">
+                        {visibility === 'only_me' && 'Csak te láthatod ezt az eseményt.'}
+                        {visibility === 'family' && 'A család minden tagja láthatja ezt az eseményt.'}
+                        {visibility === 'known_families' && 'A család és az ismerős családok tagjai is láthatják ezt az eseményt.'}
+                    </p>
+                </div>
+
                 {/* Ismétlődés típusa */}
                 <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Ismétlődés típusa</label>
@@ -593,11 +641,22 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                     </div>
                 )}
 
-                {/* Emlékeztető beállítások */}
+                {/* Emlékeztető beállítások - Accordion */}
                 <div className="border-t pt-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">🔔 Emlékeztető beállítások</h3>
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-lg font-medium text-gray-900">🔔 Emlékeztető beállítások</h3>
+                        <button
+                            type="button"
+                            onClick={() => setIsRemindersAccordionOpen(!isRemindersAccordionOpen)}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition duration-200"
+                            aria-label="Emlékeztető beállítások megjelenítése/elrejtése"
+                        >
+                            <i className={`fas fa-chevron-${isRemindersAccordionOpen ? 'up' : 'down'} text-lg`}></i>
+                        </button>
+                    </div>
                     
-                    <div className="space-y-4">
+                    {isRemindersAccordionOpen && (
+                        <div className="space-y-4">
                         {/* Emlékeztetők engedélyezése */}
                         <div className="flex items-center">
                             <input
@@ -655,6 +714,84 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                                             </button>
                                         )}
                                     </div>
+                                </div>
+
+                                {/* Értesítés kapó személyek */}
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Értesítés kapó személyek
+                                    </label>
+                                    <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                                        {(() => {
+                                            // Összegyűjtjük azokat a családtagokat, akiknek van userId-ja
+                                            const recipientsWithUserId = [];
+                                            
+                                            // Jelenlegi felhasználó (ha van userId-ja)
+                                            if (currentUserMember && currentUserMember.userId) {
+                                                recipientsWithUserId.push({
+                                                    userId: currentUserMember.userId,
+                                                    name: currentUserMember.name || userDisplayName,
+                                                    avatar: currentUserMember.avatar || '👤',
+                                                    isCurrentUser: true
+                                                });
+                                            } else if (userId) {
+                                                // Ha nincs currentUserMember, de van userId, akkor hozzáadjuk
+                                                recipientsWithUserId.push({
+                                                    userId: userId,
+                                                    name: userDisplayName || 'Én',
+                                                    avatar: '👤',
+                                                    isCurrentUser: true
+                                                });
+                                            }
+                                            
+                                            // Családtagok, akiknek van userId-ja
+                                            familyMembers.forEach(member => {
+                                                if (member.userId && member.userId !== userId) {
+                                                    recipientsWithUserId.push({
+                                                        userId: member.userId,
+                                                        name: member.name,
+                                                        avatar: member.avatar || '👤',
+                                                        isCurrentUser: false
+                                                    });
+                                                }
+                                            });
+                                            
+                                            if (recipientsWithUserId.length === 0) {
+                                                return (
+                                                    <p className="text-sm text-gray-500">
+                                                        Nincs olyan családtag, akinek van bejelentkezése. Az értesítések csak bejelentkezett felhasználóknak küldhetők.
+                                                    </p>
+                                                );
+                                            }
+                                            
+                                            return recipientsWithUserId.map(recipient => (
+                                                <label key={recipient.userId} className="flex items-center cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={notificationRecipients.includes(recipient.userId)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setNotificationRecipients([...notificationRecipients, recipient.userId]);
+                                                            } else {
+                                                                setNotificationRecipients(notificationRecipients.filter(id => id !== recipient.userId));
+                                                            }
+                                                        }}
+                                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                    />
+                                                    <span className="ml-2 text-base flex-shrink-0">{recipient.avatar}</span>
+                                                    <span className="ml-2 text-sm text-gray-700">{recipient.name}</span>
+                                                    {recipient.isCurrentUser && (
+                                                        <span className="ml-2 text-xs text-gray-500">(alapértelmezett)</span>
+                                                    )}
+                                                </label>
+                                            ));
+                                        })()}
+                                    </div>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        {notificationRecipients.length === 0 
+                                            ? 'Válassz ki legalább egy személyt, aki értesítést kapjon.'
+                                            : `${notificationRecipients.length} személy kap értesítést.`}
+                                    </p>
                                 </div>
 
                                 {/* Hang és rezgés beállítások */}
@@ -726,7 +863,8 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                                 )}
                             </>
                         )}
-                    </div>
+                        </div>
+                    )}
                 </div>
                 
                 {/* Kivétel kezelés: csak akkor, ha ismétlődő esemény előfordulását szerkesztjük (nem új esemény, nem egyszeri) */}

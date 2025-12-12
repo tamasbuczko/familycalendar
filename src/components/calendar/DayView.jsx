@@ -92,6 +92,12 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                     minHeight: `${Math.max(60, heightPercent)}px`,
                                                     ...(event.status !== 'cancelled' && event.status !== 'deleted' ? {
                                                         backgroundColor: (() => {
+                                                            // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                            if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                                if (currentUserMember.color) {
+                                                                    return `${currentUserMember.color}20`;
+                                                                }
+                                                            }
                                                             const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                             if (assignedMember?.color) {
                                                                 return `${assignedMember.color}20`;
@@ -99,6 +105,12 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                             return '#DBEAFE'; // Alapértelmezett kék
                                                         })(),
                                                         borderColor: (() => {
+                                                            // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                            if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                                if (currentUserMember.color) {
+                                                                    return `${currentUserMember.color}60`;
+                                                                }
+                                                            }
                                                             const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                             if (assignedMember?.color) {
                                                                 return `${assignedMember.color}60`;
@@ -106,6 +118,12 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                             return '#93C5FD'; // Alapértelmezett kék
                                                         })(),
                                                         color: (() => {
+                                                            // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                            if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                                if (currentUserMember.color) {
+                                                                    return currentUserMember.color;
+                                                                }
+                                                            }
                                                             const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                             if (assignedMember?.color) {
                                                                 return assignedMember.color;
@@ -136,9 +154,11 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                             )}
                                                             <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
                                                                 {event.showAvatar !== false && (() => {
-                                                                    // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor alapértelmezett avatart használunk
-                                                                    if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
-                                                                        return <span className="text-base flex-shrink-0">👤</span>;
+                                                                    // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                                    if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                                        return currentUserMember.avatar ? (
+                                                                            <span className="text-base flex-shrink-0">{currentUserMember.avatar}</span>
+                                                                        ) : <span className="text-base flex-shrink-0">👤</span>;
                                                                     }
                                                                     const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                                     return assignedMember?.avatar ? (
@@ -146,9 +166,9 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                                     ) : null;
                                                                 })()}
                                                                 <span>{(() => {
-                                                                    // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor a userDisplayName-t használjuk
-                                                                    if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
-                                                                        return userDisplayName || 'Nincs hozzárendelve';
+                                                                    // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                                    if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                                        return currentUserMember.name || userDisplayName || 'Nincs hozzárendelve';
                                                                     }
                                                                     return familyMembers.find(m => m.id === event.assignedTo)?.name || 'Nincs hozzárendelve';
                                                                 })()}</span>
@@ -164,7 +184,7 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                                        {event.notes}
                                                                    </p>
                                                                )}
-                                                               {event.status === 'completed' && (
+                                                               {event.status === 'completed' && event.assignedTo && (
                                                                    <div className="mt-1 flex items-center gap-2">
                                                                        <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
                                                                            <i className="fas fa-check-circle"></i>
@@ -190,7 +210,7 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                         >
                                                             <i className="fas fa-edit"></i>
                                                         </button>
-                                                        {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && (
+                                                        {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && event.assignedTo && (
                                                             <button
                                                                 onClick={() => onStatusChange(event, 'completed')}
                                                                 className="text-green-600 hover:text-green-800 text-xs"

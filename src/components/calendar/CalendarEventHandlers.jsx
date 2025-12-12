@@ -38,7 +38,9 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                 // Ha lemondott esemény, akkor a cancellationReason-t is mentjük, ha aktív, akkor null
                 cancellationReason: eventData.status === 'cancelled' ? (eventData.cancellationReason || null) : null,
                 lastModified: currentTimestamp,
-                lastModifiedBy: userId || 'offline'
+                lastModifiedBy: userId || 'offline',
+                // Ha új esemény (nincs eventId), akkor hozzáadjuk a createdBy mezőt
+                ...(eventId ? {} : { createdBy: userId || 'offline' })
             };
             
             console.log("CalendarEventHandlers: Saving event", {

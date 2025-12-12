@@ -187,6 +187,12 @@ const CalendarView = ({
                                         }`}
                                         style={event.status !== 'cancelled' && event.status !== 'deleted' ? {
                                             backgroundColor: (() => {
+                                                // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                    if (currentUserMember.color) {
+                                                        return `${currentUserMember.color}20`;
+                                                    }
+                                                }
                                                 const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                 if (assignedMember?.color) {
                                                     return `${assignedMember.color}20`;
@@ -194,6 +200,12 @@ const CalendarView = ({
                                                 return '#D1FAE5'; // Alapértelmezett zöld
                                             })(),
                                             borderColor: (() => {
+                                                // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                    if (currentUserMember.color) {
+                                                        return `${currentUserMember.color}60`;
+                                                    }
+                                                }
                                                 const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                 if (assignedMember?.color) {
                                                     return `${assignedMember.color}60`;
@@ -201,6 +213,12 @@ const CalendarView = ({
                                                 return '#6EE7B7'; // Alapértelmezett zöld
                                             })(),
                                             color: (() => {
+                                                // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                    if (currentUserMember.color) {
+                                                        return currentUserMember.color;
+                                                    }
+                                                }
                                                 const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                 if (assignedMember?.color) {
                                                     return assignedMember.color;
@@ -219,9 +237,11 @@ const CalendarView = ({
                                             <p className="text-sm">{event.time}{event.endTime && ` - ${event.endTime}`} {event.location && `- ${event.location}`}</p>
                                             <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">
                                             {event.showAvatar !== false && (() => {
-                                                // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor alapértelmezett avatart használunk
-                                                if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
-                                                    return <span className="text-base flex-shrink-0">👤</span>;
+                                                // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                    return currentUserMember.avatar ? (
+                                                        <span className="text-base flex-shrink-0">{currentUserMember.avatar}</span>
+                                                    ) : <span className="text-base flex-shrink-0">👤</span>;
                                                 }
                                                 const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
                                                 return assignedMember?.avatar ? (
@@ -229,9 +249,9 @@ const CalendarView = ({
                                                 ) : null;
                                             })()}
                                                 <span>{(() => {
-                                                    // Ha a családfő van hozzárendelve (user_${userId} formátumú ID), akkor a userDisplayName-t használjuk
-                                                    if (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`) {
-                                                        return userDisplayName || 'Nincs hozzárendelve';
+                                                    // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                    if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
+                                                        return currentUserMember.name || userDisplayName || 'Nincs hozzárendelve';
                                                     }
                                                     return familyMembers.find(m => m.id === event.assignedTo)?.name || 'Nincs hozzárendelve';
                                                 })()}</span>
@@ -245,7 +265,7 @@ const CalendarView = ({
                                         {event.notes && (
                                             <p className="text-xs text-gray-500 mt-1 italic">Megjegyzés: {event.notes}</p>
                                         )}
-                                        {event.status === 'completed' && (
+                                        {event.status === 'completed' && event.assignedTo && (
                                             <div className="mt-2 flex items-center gap-2">
                                                 <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
                                                     <i className="fas fa-check-circle"></i>
@@ -270,7 +290,7 @@ const CalendarView = ({
                                             >
                                                 <i className="fas fa-edit h-4 w-4 inline-block"></i>
                                             </button>
-                                            {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && (
+                                            {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && event.assignedTo && (
                                                 <button
                                                     onClick={() => onStatusChange(event, 'completed')}
                                                     className="text-green-600 hover:text-green-800 text-sm font-medium"
