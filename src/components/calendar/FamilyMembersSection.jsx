@@ -92,22 +92,23 @@ const FamilyMembersSection = ({
                 {currentUserMember && (
                     (() => {
                         const memberColor = currentUserMember.color || '#8B5CF6';
-                        const memberAvatar = currentUserMember.avatar || '👤';
+                        const memberAvatar = currentUserMember.avatar && currentUserMember.avatar.trim() !== '' ? currentUserMember.avatar : null;
                         const memberId = currentUserMember.id;
                         const isSelected = selectedMemberId === memberId;
                         return (
                             <div key={memberId} className="group relative">
                                 <span 
                                     onClick={() => onMemberClick && onMemberClick(memberId)}
-                                    className={`text-sm font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit cursor-pointer ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
+                                    className={`text-sm font-medium rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit cursor-pointer ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
                                     style={{ 
                                         backgroundColor: isSelected ? `${memberColor}40` : `${memberColor}20`, 
                                         color: memberColor,
                                         border: `1px solid ${memberColor}40`,
-                                        ringColor: memberColor
+                                        ringColor: memberColor,
+                                        padding: memberAvatar ? '0.25rem 0.75rem' : '0.5rem 0.75rem'
                                     }}
                                 >
-                                    <span className="text-lg">{memberAvatar}</span>
+                                    {memberAvatar && <span className="text-lg">{memberAvatar}</span>}
                                     <span className="whitespace-nowrap">{currentUserMember.name}</span>
                                 </span>
                             </div>
@@ -119,21 +120,22 @@ const FamilyMembersSection = ({
                 ) : (
                     familyMembers.map(member => {
                         const memberColor = member.color || '#8B5CF6'; // Alapértelmezett lila, ha nincs szín
-                        const memberAvatar = member.avatar || '👤';
+                        const memberAvatar = member.avatar && member.avatar.trim() !== '' ? member.avatar : null;
                         const isSelected = selectedMemberId === member.id;
                         return (
                             <div key={member.id} className="group relative">
                                 <span 
                                     onClick={() => onMemberClick && onMemberClick(member.id)}
-                                    className={`text-sm font-medium px-3 py-1 rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit cursor-pointer ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
+                                    className={`text-sm font-medium rounded-full shadow-sm flex items-center gap-2 transition-all duration-200 ease-in-out min-w-fit cursor-pointer ${isSelected ? 'ring-2 ring-offset-2' : ''}`}
                                     style={{ 
                                         backgroundColor: isSelected ? `${memberColor}40` : `${memberColor}20`, 
                                         color: memberColor,
                                         border: `1px solid ${memberColor}40`,
-                                        ringColor: memberColor
+                                        ringColor: memberColor,
+                                        padding: memberAvatar ? '0.25rem 0.75rem' : '0.5rem 0.75rem'
                                     }}
                                 >
-                                    <span className="text-lg">{memberAvatar}</span>
+                                    {memberAvatar && <span className="text-lg">{memberAvatar}</span>}
                                     <span className="whitespace-nowrap">{member.name}</span>
                                     {!isChildMode && (
                                         <>

@@ -78,7 +78,7 @@ const CalendarView = ({
                     >
                         Előző nap
                     </button>
-                    <h2 className="text-xl md:text-2xl font-semibold text-gray-700 text-center">
+                    <h2 className="text-base sm:text-lg md:text-2xl font-semibold text-gray-700 text-center">
                         {currentDate.toLocaleDateString('hu-HU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </h2>
                     <button
@@ -143,7 +143,7 @@ const CalendarView = ({
                 >
                     Előző hét
                 </button>
-                <h2 className="text-xl md:text-2xl font-semibold text-gray-700 text-center">
+                <h2 className="text-base sm:text-lg md:text-2xl font-semibold text-gray-700 text-center">
                     {`${daysToDisplay[0].toLocaleDateString('hu-HU', { month: 'long', day: 'numeric' })} - ${daysToDisplay[daysToDisplay.length - 1].toLocaleDateString('hu-HU', { month: 'long', day: 'numeric', year: 'numeric' })}`}
                 </h2>
                 <button
@@ -240,13 +240,15 @@ const CalendarView = ({
                                             {event.showAvatar !== false && (() => {
                                                 // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
                                                 if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
-                                                    return currentUserMember.avatar ? (
-                                                        <span className="text-base flex-shrink-0">{currentUserMember.avatar}</span>
-                                                    ) : <span className="text-base flex-shrink-0">👤</span>;
+                                                    const avatar = currentUserMember.avatar && currentUserMember.avatar.trim() !== '' ? currentUserMember.avatar : null;
+                                                    return avatar ? (
+                                                        <span className="text-base flex-shrink-0">{avatar}</span>
+                                                    ) : null;
                                                 }
                                                 const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
-                                                return assignedMember?.avatar ? (
-                                                    <span className="text-base flex-shrink-0">{assignedMember.avatar}</span>
+                                                const avatar = assignedMember?.avatar && assignedMember.avatar.trim() !== '' ? assignedMember.avatar : null;
+                                                return avatar ? (
+                                                    <span className="text-base flex-shrink-0">{avatar}</span>
                                                 ) : null;
                                             })()}
                                                 <span>{(() => {

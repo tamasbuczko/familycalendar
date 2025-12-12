@@ -254,13 +254,15 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                                 {event.showAvatar !== false && (() => {
                                                                     // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
                                                                     if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
-                                                                        return currentUserMember.avatar ? (
-                                                                            <span className="text-base flex-shrink-0">{currentUserMember.avatar}</span>
-                                                                        ) : <span className="text-base flex-shrink-0">👤</span>;
+                                                                        const avatar = currentUserMember.avatar && currentUserMember.avatar.trim() !== '' ? currentUserMember.avatar : null;
+                                                                        return avatar ? (
+                                                                            <span className="text-base flex-shrink-0">{avatar}</span>
+                                                                        ) : null;
                                                                     }
                                                                     const assignedMember = familyMembers.find(m => m.id === event.assignedTo);
-                                                                    return assignedMember?.avatar ? (
-                                                                        <span className="text-base flex-shrink-0">{assignedMember.avatar}</span>
+                                                                    const avatar = assignedMember?.avatar && assignedMember.avatar.trim() !== '' ? assignedMember.avatar : null;
+                                                                    return avatar ? (
+                                                                        <span className="text-base flex-shrink-0">{avatar}</span>
                                                                     ) : null;
                                                                 })()}
                                                                 <span>{(() => {

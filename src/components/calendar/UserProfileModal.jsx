@@ -21,7 +21,7 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
     const [newDisplayName, setNewDisplayName] = useState(currentDisplayName);
     const [newEmail, setNewEmail] = useState(currentEmail);
     const [birthDate, setBirthDate] = useState(currentUserMember?.birthDate || '');
-    const [avatar, setAvatar] = useState(currentUserMember?.avatar || '👤');
+    const [avatar, setAvatar] = useState(currentUserMember?.avatar || '');
     const [color, setColor] = useState(currentUserMember?.color || '#10B981');
     const [role, setRole] = useState(currentUserMember?.role || 'adult');
     
@@ -64,7 +64,7 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
             // Member adatok betöltése, ha van
             if (currentUserMember) {
                 setBirthDate(currentUserMember.birthDate || '');
-                setAvatar(currentUserMember.avatar || '👤');
+                setAvatar(currentUserMember.avatar || '');
                 setColor(currentUserMember.color || '#10B981');
                 setRole(currentUserMember.role || 'adult');
             }
@@ -247,8 +247,20 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Avatar kiválasztása</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Avatar kiválasztása (opcionális)</label>
                             <div className="grid grid-cols-8 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setAvatar('')}
+                                    className={`text-sm rounded-lg border-2 transition-all duration-200 flex items-center justify-center p-2 ${
+                                        avatar === '' || !avatar
+                                            ? 'border-blue-500 bg-blue-50 scale-110' 
+                                            : 'border-gray-200 hover:border-gray-300 hover:scale-105'
+                                    }`}
+                                    title="Nincs avatar"
+                                >
+                                    <span className="text-xs text-gray-500">Nincs</span>
+                                </button>
                                 {avatars.map((avatarOption, index) => (
                                     <button
                                         key={index}

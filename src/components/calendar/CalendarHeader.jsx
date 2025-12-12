@@ -42,11 +42,11 @@ const CalendarHeader = ({
                         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
                             {familyName || 'Családi Naptár'}
                         </h1>
-                        {/* Profil gomb - mindenhol látható */}
+                        {/* Profil gomb - csak desktop-on, mobilon a hamburger menüben van */}
                         {isChildMode && childSession && (
                             <button
                                 onClick={onProfileClick}
-                                className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                                className="hidden md:block ml-2 sm:ml-4 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
                                 style={{
                                     backgroundColor: childColor ? `${childColor}20` : '#F3E8FF',
                                     borderColor: childColor ? `${childColor}60` : '#A855F7',
@@ -83,7 +83,7 @@ const CalendarHeader = ({
                         {!isChildMode && (userDisplayName || userEmail) && (
                             <button
                                 onClick={onProfileClick}
-                                className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                                className="hidden md:block ml-2 sm:ml-4 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
                                 style={{
                                     backgroundColor: currentUserMember?.color ? `${currentUserMember.color}20` : '#D1FAE5',
                                     borderColor: currentUserMember?.color ? `${currentUserMember.color}60` : '#10B981',
@@ -106,12 +106,16 @@ const CalendarHeader = ({
                                 }}
                             >
                                 <span 
-                                    className="text-xs sm:text-sm font-medium"
+                                    className="text-xs sm:text-sm font-medium flex items-center"
                                     style={{
                                         color: currentUserMember?.color || '#065F46'
                                     }}
                                 >
-                                    <i className="fas fa-user mr-1"></i>
+                                    {currentUserMember?.avatar ? (
+                                        <span className="text-base sm:text-lg mr-1">{currentUserMember.avatar}</span>
+                                    ) : (
+                                        <i className="fas fa-user mr-1"></i>
+                                    )}
                                     <span className="hidden sm:inline">{userDisplayName || userEmail}</span>
                                     <span className="sm:hidden">Profil</span>
                                 </span>
@@ -258,12 +262,23 @@ const CalendarHeader = ({
                                     }}
                                 >
                                     <div className="flex items-center">
-                                        <i 
-                                            className="fas fa-user text-xl mr-3"
-                                            style={{
-                                                color: currentUserMember?.color || '#10B981'
-                                            }}
-                                        ></i>
+                                        {currentUserMember?.avatar ? (
+                                            <span 
+                                                className="text-2xl mr-3"
+                                                style={{
+                                                    color: currentUserMember?.color || '#10B981'
+                                                }}
+                                            >
+                                                {currentUserMember.avatar}
+                                            </span>
+                                        ) : (
+                                            <i 
+                                                className="fas fa-user text-xl mr-3"
+                                                style={{
+                                                    color: currentUserMember?.color || '#10B981'
+                                                }}
+                                            ></i>
+                                        )}
                                         <div>
                                             <div 
                                                 className="font-medium"

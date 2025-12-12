@@ -4,7 +4,7 @@ import Modal from '../ui/Modal.jsx';
 const ChildProfileModal = ({ onClose, onCreateChild, loading, editingMember }) => {
     const [childName, setChildName] = useState(editingMember?.name || '');
     const [childBirthDate, setChildBirthDate] = useState(editingMember?.birthDate || '');
-    const [childAvatar, setChildAvatar] = useState(editingMember?.avatar || '👶');
+    const [childAvatar, setChildAvatar] = useState(editingMember?.avatar || '');
     const [childRole, setChildRole] = useState(editingMember?.role || 'child');
 
     const avatars = [
@@ -66,8 +66,20 @@ const ChildProfileModal = ({ onClose, onCreateChild, loading, editingMember }) =
                 </div>
                 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Avatar kiválasztása</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Avatar kiválasztása (opcionális)</label>
                     <div className="grid grid-cols-8 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setChildAvatar('')}
+                            className={`text-sm rounded-lg border-2 transition-all duration-200 flex items-center justify-center p-2 ${
+                                childAvatar === '' || !childAvatar
+                                    ? 'border-blue-500 bg-blue-50 scale-110' 
+                                    : 'border-gray-200 hover:border-gray-300 hover:scale-105'
+                            }`}
+                            title="Nincs avatar"
+                        >
+                            <span className="text-xs text-gray-500">Nincs</span>
+                        </button>
                         {avatars.map((avatar, index) => (
                             <button
                                 key={index}

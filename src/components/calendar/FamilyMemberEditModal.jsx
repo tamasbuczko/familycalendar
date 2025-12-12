@@ -11,7 +11,7 @@ const FamilyMemberEditModal = ({
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [birthDate, setBirthDate] = useState('');
-    const [avatar, setAvatar] = useState('👶');
+    const [avatar, setAvatar] = useState('');
     const [color, setColor] = useState('#10B981'); // Alapértelmezett zöld
     const [role, setRole] = useState('adult');
     const [isChild, setIsChild] = useState(false);
@@ -40,7 +40,7 @@ const FamilyMemberEditModal = ({
             setName(editingMember.name || '');
             setEmail(editingMember.email || '');
             setBirthDate(editingMember.birthDate || '');
-            setAvatar(editingMember.avatar || '👶');
+            setAvatar(editingMember.avatar || '');
             setColor(editingMember.color || '#10B981');
             setRole(editingMember.role || 'adult');
             setIsChild(editingMember.isChild || false);
@@ -49,7 +49,7 @@ const FamilyMemberEditModal = ({
             setName('');
             setEmail('');
             setBirthDate('');
-            setAvatar('👶');
+            setAvatar('');
             // Alapértelmezett szín: zöld
             setColor('#10B981');
             setRole(memberType === 'child' ? 'child' : 'adult');
@@ -177,8 +177,20 @@ const FamilyMemberEditModal = ({
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Avatar kiválasztása</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Avatar kiválasztása (opcionális)</label>
                     <div className="grid grid-cols-8 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setAvatar('')}
+                            className={`text-sm rounded-lg border-2 transition-all duration-200 flex items-center justify-center p-2 ${
+                                avatar === '' || !avatar
+                                    ? 'border-blue-500 bg-blue-50 scale-110' 
+                                    : 'border-gray-200 hover:border-gray-300 hover:scale-105'
+                            }`}
+                            title="Nincs avatar"
+                        >
+                            <span className="text-xs text-gray-500">Nincs</span>
+                        </button>
                         {avatars.map((avatarOption, index) => (
                             <button
                                 key={index}

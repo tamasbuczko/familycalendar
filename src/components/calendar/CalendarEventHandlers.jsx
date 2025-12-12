@@ -1075,7 +1075,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                     name: profileData.displayName,
                     email: profileData.email || null,
                     birthDate: profileData.birthDate || null,
-                    avatar: profileData.avatar || '👤',
+                    avatar: profileData.avatar !== undefined ? profileData.avatar : null,
                     color: profileData.color || '#3B82F6',
                     role: profileData.role || 'adult',
                     userId: userId, // Biztosítjuk, hogy a userId benne legyen
@@ -1089,7 +1089,7 @@ export const useCalendarEventHandlers = (db, userId, userFamilyId, state, setSta
                     name: profileData.displayName,
                     email: profileData.email || null,
                     birthDate: profileData.birthDate || null,
-                    avatar: profileData.avatar || '👤',
+                    avatar: profileData.avatar !== undefined ? profileData.avatar : null,
                     color: profileData.color || '#3B82F6',
                     role: profileData.role || 'adult',
                     userId: userId,
