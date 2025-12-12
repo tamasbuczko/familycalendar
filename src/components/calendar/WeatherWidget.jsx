@@ -357,7 +357,7 @@ const WeatherWidget = ({ location = "Budapest,HU", onWeatherUpdate, userId, fami
                 
                 <div className="text-right text-sm text-gray-600">
                     <div>💧 {weather.humidity}%</div>
-                    <div>💨 {weather.windSpeed} m/s</div>
+                    <div>💨 {weather.windSpeed.toFixed(1)} m/s</div>
                 </div>
             </div>
 

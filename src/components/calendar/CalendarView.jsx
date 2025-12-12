@@ -53,19 +53,19 @@ const CalendarView = ({
                 <div className="flex justify-center gap-4 mb-6">
                     <button
                         onClick={() => setCurrentView('day')}
-                        className={`py-2 px-4 rounded-lg font-bold transition duration-300 ease-in-out ${currentView === 'day' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out ${currentView === 'day' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                     >
                         Napi nézet
                     </button>
                     <button
                         onClick={() => setCurrentView('week')}
-                        className={`py-2 px-4 rounded-lg font-bold transition duration-300 ease-in-out ${currentView === 'week' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out ${currentView === 'week' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                     >
                         Heti nézet
                     </button>
                     <button
                         onClick={() => setCurrentView('weekdays-only')}
-                        className={`py-2 px-4 rounded-lg font-bold transition duration-300 ease-in-out ${currentView === 'weekdays-only' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                        className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out ${currentView === 'weekdays-only' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                     >
                         Hétköznapi nézet
                     </button>
@@ -74,7 +74,7 @@ const CalendarView = ({
                 <div className="flex justify-between items-center mb-6">
                     <button
                         onClick={() => handleNavigate(-1)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
                     >
                         Előző nap
                     </button>
@@ -83,7 +83,7 @@ const CalendarView = ({
                     </h2>
                     <button
                         onClick={() => handleNavigate(1)}
-                        className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                        className="bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
                     >
                         Következő nap
                     </button>
@@ -103,7 +103,7 @@ const CalendarView = ({
 
                 <button
                     onClick={onAddEvent}
-                    className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                    className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
                 >
                     Esemény hozzáadása
                 </button>
@@ -117,19 +117,19 @@ const CalendarView = ({
             <div className="flex justify-center gap-4 mb-6">
                 <button
                     onClick={() => setCurrentView('day')}
-                    className={`py-2 px-4 rounded-lg font-bold transition duration-300 ease-in-out ${currentView === 'day' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out ${currentView === 'day' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                 >
                     Napi nézet
                 </button>
                 <button
                     onClick={() => setCurrentView('week')}
-                    className={`py-2 px-4 rounded-lg font-bold transition duration-300 ease-in-out ${currentView === 'week' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out ${currentView === 'week' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                 >
                     Heti nézet
                 </button>
                 <button
                     onClick={() => setCurrentView('weekdays-only')}
-                    className={`py-2 px-4 rounded-lg font-bold transition duration-300 ease-in-out ${currentView === 'weekdays-only' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                    className={`py-2 px-4 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out ${currentView === 'weekdays-only' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
                 >
                     Hétköznapi nézet
                 </button>
@@ -138,7 +138,7 @@ const CalendarView = ({
             <div className="flex justify-between items-center mb-6">
                 <button
                     onClick={() => handleNavigate(-1)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                    className="bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
                 >
                     Előző hét
                 </button>
@@ -147,7 +147,7 @@ const CalendarView = ({
                 </h2>
                 <button
                     onClick={() => handleNavigate(1)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+                    className="bg-blue-500 hover:bg-blue-600 text-white text-xs sm:text-sm font-medium py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
                 >
                     Következő hét
                 </button>
