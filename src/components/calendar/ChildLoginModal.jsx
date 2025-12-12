@@ -4,6 +4,17 @@ import Modal from '../ui/Modal.jsx';
 const ChildLoginModal = ({ onClose, onChildLogin, familyMembers, loading }) => {
     const [selectedChild, setSelectedChild] = useState('');
 
+    // Szerepkör fordítása angolról magyarra
+    const translateRole = (role) => {
+        const roleMap = {
+            'child': 'Gyerek',
+            'teenager': 'Tizenéves',
+            'adult': 'Felnőtt',
+            'parent': 'Szülő'
+        };
+        return roleMap[role] || role;
+    };
+
     // Csak gyerek profilokat mutatunk
     const childMembers = familyMembers.filter(member => member.isChild);
 
@@ -66,7 +77,7 @@ const ChildLoginModal = ({ onClose, onChildLogin, familyMembers, loading }) => {
                                 <div className="text-sm text-gray-500 text-center">
                                     {child.birthDate ? `${new Date(child.birthDate).toLocaleDateString('hu-HU')}` : 'Születési dátum nincs megadva'}
                                 </div>
-                                <div className="text-xs text-gray-400 capitalize text-center">{child.role}</div>
+                                <div className="text-xs text-gray-400 text-center">{translateRole(child.role)}</div>
                             </button>
                         ))}
                     </div>

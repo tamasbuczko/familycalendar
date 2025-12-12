@@ -478,7 +478,10 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                 {/* Pontok beállítása - csak ha gyerekhez van hozzárendelve */}
                 {assignedTo && (() => {
                     const assignedMember = familyMembers.find(m => m.id === assignedTo);
-                    const isChild = assignedMember?.isChild || (assignedTo && assignedTo.startsWith('user_') && userId && assignedTo === `user_${userId}` && currentUserMember?.isChild);
+                    // Ellenőrizzük, hogy a currentUserMember-e van hozzárendelve
+                    const isAssignedToCurrentUser = currentUserMember && (assignedTo === currentUserMember.id || (assignedTo && assignedTo.startsWith('user_') && userId && assignedTo === `user_${userId}`));
+                    const assignedMemberForCheck = isAssignedToCurrentUser ? currentUserMember : assignedMember;
+                    const isChild = assignedMemberForCheck?.isChild || (assignedTo && assignedTo.startsWith('user_') && userId && assignedTo === `user_${userId}` && currentUserMember?.isChild);
                     if (isChild) {
                         return (
                             <div>

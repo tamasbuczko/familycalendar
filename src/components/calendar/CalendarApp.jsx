@@ -155,6 +155,8 @@ const CalendarApp = ({ onLogout }) => {
                 onProfileClick={() => state.setShowUserProfileModal(true)}
                 userEmail={auth.currentUser?.email}
                 userDisplayName={state.userDisplayName}
+                currentUserMember={state.currentUserMember}
+                familyMembers={state.familyMembers}
             />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

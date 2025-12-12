@@ -3,6 +3,17 @@ import Modal from '../ui/Modal.jsx';
 import PointsDisplay from '../gamification/PointsDisplay.jsx';
 
 const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, loading, isChildMode = false, childSession = null, familyData = null, currentUserMember = null, userId = null, db = null, familyId = null }) => {
+    // Szerepkör fordítása angolról magyarra
+    const translateRole = (role) => {
+        const roleMap = {
+            'child': 'Gyerek',
+            'teenager': 'Tizenéves',
+            'adult': 'Felnőtt',
+            'parent': 'Szülő'
+        };
+        return roleMap[role] || role;
+    };
+
     // Gyerek módban a gyerek adatait használjuk, szülő módban a szülő adatait
     const currentDisplayName = isChildMode ? (childSession?.childName || '') : (displayName || '');
     const currentEmail = isChildMode ? '' : (userEmail || '');
@@ -137,7 +148,7 @@ const UserProfileModal = ({ onClose, onSaveProfile, userEmail, displayName, load
                                     Szerepkör
                                 </label>
                                 <div className="w-full p-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-800">
-                                    {childSession?.childRole || 'Gyerek'}
+                                    {translateRole(childSession?.childRole) || 'Gyerek'}
                                 </div>
                             </div>
 

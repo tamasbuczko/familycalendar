@@ -98,6 +98,7 @@ const CalendarView = ({
                     onStatusChange={onStatusChange}
                     userId={userId}
                     userDisplayName={userDisplayName}
+                    currentUserMember={currentUserMember}
                     isChildMode={isChildMode}
                 />
 
@@ -265,23 +266,30 @@ const CalendarView = ({
                                         {event.notes && (
                                             <p className="text-xs text-gray-500 mt-1 italic">Megjegyzés: {event.notes}</p>
                                         )}
-                                        {event.status === 'completed' && event.assignedTo && (
-                                            <div className="mt-2 flex items-center gap-2">
-                                                <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
-                                                    <i className="fas fa-check-circle"></i>
-                                                    Teljesítve
-                                                </span>
-                                                {!isChildMode && (
-                                                    <button
-                                                        onClick={() => onStatusChange(event, 'active')}
-                                                        className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                                                        title="Visszaállítás"
-                                                    >
-                                                        <i className="fas fa-undo h-3 w-3 inline-block"></i>
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
+                                        {event.status === 'completed' && event.assignedTo && (() => {
+                                            // Ellenőrizzük, hogy a currentUserMember-e van hozzárendelve
+                                            const isAssignedToCurrentUser = currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`));
+                                            const assignedMemberForCheck = isAssignedToCurrentUser ? currentUserMember : familyMembers.find(m => m.id === event.assignedTo);
+                                            const isChild = assignedMemberForCheck?.isChild || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}` && currentUserMember?.isChild);
+                                            if (!isChild) return null;
+                                            return (
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
+                                                        <i className="fas fa-check-circle"></i>
+                                                        Teljesítve
+                                                    </span>
+                                                    {!isChildMode && (
+                                                        <button
+                                                            onClick={() => onStatusChange(event, 'active')}
+                                                            className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+                                                            title="Visszaállítás"
+                                                        >
+                                                            <i className="fas fa-undo h-3 w-3 inline-block"></i>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
                                         <div className="flex justify-end gap-2 mt-2">
                                             <button
                                                 onClick={() => onEditEvent(event)}
@@ -290,15 +298,22 @@ const CalendarView = ({
                                             >
                                                 <i className="fas fa-edit h-4 w-4 inline-block"></i>
                                             </button>
-                                            {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && event.assignedTo && (
-                                                <button
-                                                    onClick={() => onStatusChange(event, 'completed')}
-                                                    className="text-green-600 hover:text-green-800 text-sm font-medium"
-                                                    title="Teljesítve"
-                                                >
-                                                    <i className="fas fa-check-circle h-4 w-4 inline-block"></i>
-                                                </button>
-                                            )}
+                                            {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && event.assignedTo && (() => {
+                                                // Ellenőrizzük, hogy a currentUserMember-e van hozzárendelve
+                                                const isAssignedToCurrentUser = currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`));
+                                                const assignedMemberForCheck = isAssignedToCurrentUser ? currentUserMember : familyMembers.find(m => m.id === event.assignedTo);
+                                                const isChild = assignedMemberForCheck?.isChild || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}` && currentUserMember?.isChild);
+                                                if (!isChild) return null;
+                                                return (
+                                                    <button
+                                                        onClick={() => onStatusChange(event, 'completed')}
+                                                        className="text-green-600 hover:text-green-800 text-sm font-medium"
+                                                        title="Teljesítve"
+                                                    >
+                                                        <i className="fas fa-check-circle h-4 w-4 inline-block"></i>
+                                                    </button>
+                                                );
+                                            })()}
                                             {event.status !== 'cancelled' && (
                                                 <button
                                                     onClick={() => onStatusChange(event, 'cancelled')}

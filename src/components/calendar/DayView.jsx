@@ -1,6 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
-const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange, userId, userDisplayName, isChildMode = false }) => {
+const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange, userId, userDisplayName, currentUserMember, isChildMode = false }) => {
+    const [currentTime, setCurrentTime] = useState(new Date());
+    const containerRef = useRef(null);
+    const hourRefs = useRef({});
+
+    // Frissítjük az aktuális időt minden percben
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date());
+        }, 60000); // Minden percben frissít
+
+        return () => clearInterval(timer);
+    }, []);
+
+    // Ellenőrizzük, hogy a megjelenített dátum a mai nap-e
+    const isToday = () => {
+        const today = new Date();
+        const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        
+        let viewDate;
+        if (date instanceof Date) {
+            viewDate = new Date(date);
+        } else if (typeof date === 'string') {
+            // Ha string, akkor próbáljuk meg local időzónában értelmezni
+            const dateParts = date.split('-');
+            if (dateParts.length === 3) {
+                // YYYY-MM-DD formátum
+                viewDate = new Date(parseInt(dateParts[0]), parseInt(dateParts[1]) - 1, parseInt(dateParts[2]));
+            } else {
+                viewDate = new Date(date);
+            }
+        } else {
+            return false;
+        }
+        
+        const viewDateLocal = new Date(viewDate.getFullYear(), viewDate.getMonth(), viewDate.getDate());
+        
+        return todayLocal.getTime() === viewDateLocal.getTime();
+    };
+
+    // Aktuális idő pozíciójának kiszámítása
+    const getCurrentTimePosition = () => {
+        if (!isToday()) return null;
+        
+        // Local időzónában számoljuk az aktuális időt
+        const now = new Date();
+        const currentHour = now.getHours(); // Local óra
+        const currentMinutes = now.getMinutes(); // Local perc
+        const currentSeconds = now.getSeconds(); // Local másodperc
+        
+        // Teljes pozíció percekben (óra * 60 + perc + másodperc/60)
+        const totalMinutes = currentHour * 60 + currentMinutes + currentSeconds / 60;
+        
+        return {
+            hour: currentHour,
+            minutes: currentMinutes,
+            seconds: currentSeconds,
+            totalMinutes: totalMinutes,
+            positionInHour: currentMinutes + currentSeconds / 60 // Pozíció az órán belül (0-60 perc)
+        };
+    };
+
+    const timePosition = getCurrentTimePosition();
+
     // Órák generálása (0-23)
     const hours = Array.from({ length: 24 }, (_, i) => i);
 
@@ -48,16 +111,48 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
     });
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="divide-y divide-gray-200">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" ref={containerRef}>
+            <div className="divide-y divide-gray-200 relative">
                 {hours.map(hour => {
                     const hourEvents = eventsByHour[hour] || [];
                     const hourString = `${hour.toString().padStart(2, '0')}:00`;
 
                     const hasEvents = hourEvents.length > 0;
+                    const isCurrentHour = timePosition && timePosition.hour === hour;
                     
                     return (
-                        <div key={hour} className={`flex ${hasEvents ? 'min-h-[80px]' : 'min-h-[40px]'} hover:bg-gray-50 transition-colors`}>
+                        <div 
+                            key={hour} 
+                            className={`flex ${hasEvents ? 'min-h-[80px]' : 'min-h-[40px]'} hover:bg-gray-50 transition-colors relative`}
+                            ref={el => {
+                                if (el) hourRefs.current[hour] = el;
+                            }}
+                        >
+                            {/* Aktuális idő piros vonala - csak az aktuális órán belül */}
+                            {isCurrentHour && timePosition && (
+                                <div
+                                    className="absolute left-0 right-0 z-10 pointer-events-none"
+                                    style={{
+                                        top: `${(timePosition.positionInHour / 60) * 100}%`,
+                                        height: '1px',
+                                        backgroundColor: '#EF4444',
+                                        boxShadow: '0 0 2px rgba(239, 68, 68, 0.5)'
+                                    }}
+                                >
+                                    {/* Háromszög a bal oldalon */}
+                                    <div
+                                        className="absolute left-0 top-1/2 transform -translate-y-1/2"
+                                        style={{
+                                            width: 0,
+                                            height: 0,
+                                            borderTop: '4px solid transparent',
+                                            borderBottom: '4px solid transparent',
+                                            borderLeft: '6px solid #EF4444',
+                                            filter: 'drop-shadow(0 0 2px rgba(239, 68, 68, 0.5))'
+                                        }}
+                                    ></div>
+                                </div>
+                            )}
                             {/* Óra címke */}
                             <div className="w-20 md:w-24 flex-shrink-0 flex items-start justify-center pt-2 px-2 border-r border-gray-200 bg-gray-50">
                                 <span className="text-sm font-semibold text-gray-700">
@@ -66,20 +161,21 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                             </div>
 
                             {/* Események */}
-                            <div className={`flex-1 ${hasEvents ? 'p-2 space-y-2' : 'py-1'}`}>
+                            <div className={`flex-1 ${hasEvents ? 'p-2' : 'py-1'}`}>
                                 {hasEvents ? (
-                                    hourEvents.map(event => {
-                                        const eventMinutes = getEventMinutes(event.time);
-                                        const duration = event.endTime 
-                                            ? getEventDuration(event.time, event.endTime) 
-                                            : 60;
-                                        const heightPercent = Math.min(100, (duration / 60) * 100);
+                                    <div className="flex flex-wrap gap-2">
+                                        {hourEvents.map(event => {
+                                            const eventMinutes = getEventMinutes(event.time);
+                                            const duration = event.endTime 
+                                                ? getEventDuration(event.time, event.endTime) 
+                                                : 60;
+                                            const heightPercent = Math.min(100, (duration / 60) * 100);
 
 
-                                        return (
-                                            <div
-                                                key={event.id}
-                                                className={`p-2 rounded-lg shadow-sm border text-sm ${
+                                            return (
+                                                <div
+                                                    key={event.id}
+                                                    className={`p-2 rounded-lg shadow-sm border text-sm flex-grow ${
                                                     event.status === 'cancelled' 
                                                         ? 'bg-red-100 border-red-300 text-red-800 line-through' 
                                                         : event.status === 'deleted' 
@@ -89,6 +185,8 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                         : ''
                                                 }`}
                                                 style={{
+                                                    minWidth: '175px',
+                                                    flexBasis: '175px',
                                                     minHeight: `${Math.max(60, heightPercent)}px`,
                                                     ...(event.status !== 'cancelled' && event.status !== 'deleted' ? {
                                                         backgroundColor: (() => {
@@ -184,23 +282,30 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                                        {event.notes}
                                                                    </p>
                                                                )}
-                                                               {event.status === 'completed' && event.assignedTo && (
-                                                                   <div className="mt-1 flex items-center gap-2">
-                                                                       <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
-                                                                           <i className="fas fa-check-circle"></i>
-                                                                           Teljesítve
-                                                                       </span>
-                                                                       {!isChildMode && (
-                                                                           <button
-                                                                               onClick={() => onStatusChange(event, 'active')}
-                                                                               className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
-                                                                               title="Visszaállítás"
-                                                                           >
-                                                                               <i className="fas fa-undo"></i>
-                                                                           </button>
-                                                                       )}
-                                                                   </div>
-                                                               )}
+                                                               {event.status === 'completed' && event.assignedTo && (() => {
+                                                                   // Ellenőrizzük, hogy a currentUserMember-e van hozzárendelve
+                                                                   const isAssignedToCurrentUser = currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`));
+                                                                   const assignedMemberForCheck = isAssignedToCurrentUser ? currentUserMember : familyMembers.find(m => m.id === event.assignedTo);
+                                                                   const isChild = assignedMemberForCheck?.isChild || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}` && currentUserMember?.isChild);
+                                                                   if (!isChild) return null;
+                                                                   return (
+                                                                       <div className="mt-1 flex items-center gap-2">
+                                                                           <span className="text-green-600 text-xs font-semibold flex items-center gap-1">
+                                                                               <i className="fas fa-check-circle"></i>
+                                                                               Teljesítve
+                                                                           </span>
+                                                                           {!isChildMode && (
+                                                                               <button
+                                                                                   onClick={() => onStatusChange(event, 'active')}
+                                                                                   className="text-blue-600 hover:text-blue-800 text-xs flex items-center"
+                                                                                   title="Visszaállítás"
+                                                                               >
+                                                                                   <i className="fas fa-undo"></i>
+                                                                               </button>
+                                                                           )}
+                                                                       </div>
+                                                                   );
+                                                               })()}
                                                     </div>
                                                     <div className="flex gap-1 ml-2 items-center">
                                                         <button
@@ -210,15 +315,22 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                         >
                                                             <i className="fas fa-edit"></i>
                                                         </button>
-                                                        {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && event.assignedTo && (
-                                                            <button
-                                                                onClick={() => onStatusChange(event, 'completed')}
-                                                                className="text-green-600 hover:text-green-800 text-xs"
-                                                                title="Teljesítve"
-                                                            >
-                                                                <i className="fas fa-check-circle"></i>
-                                                            </button>
-                                                        )}
+                                                        {!isChildMode && event.status !== 'cancelled' && event.status !== 'completed' && event.assignedTo && (() => {
+                                                            // Ellenőrizzük, hogy a currentUserMember-e van hozzárendelve
+                                                            const isAssignedToCurrentUser = currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`));
+                                                            const assignedMemberForCheck = isAssignedToCurrentUser ? currentUserMember : familyMembers.find(m => m.id === event.assignedTo);
+                                                            const isChild = assignedMemberForCheck?.isChild || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}` && currentUserMember?.isChild);
+                                                            if (!isChild) return null;
+                                                            return (
+                                                                <button
+                                                                    onClick={() => onStatusChange(event, 'completed')}
+                                                                    className="text-green-600 hover:text-green-800 text-xs"
+                                                                    title="Teljesítve"
+                                                                >
+                                                                    <i className="fas fa-check-circle"></i>
+                                                                </button>
+                                                            );
+                                                        })()}
                                                         {event.status !== 'cancelled' && (
                                                             <button
                                                                 onClick={() => onStatusChange(event, 'cancelled')}
@@ -241,7 +353,8 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                 </div>
                                             </div>
                                         );
-                                    })
+                                    })}
+                                    </div>
                                 ) : null}
                             </div>
                         </div>

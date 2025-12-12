@@ -10,8 +10,15 @@ const CalendarHeader = ({
     onSettingsClick,
     onProfileClick,
     userEmail,
-    userDisplayName
+    userDisplayName,
+    currentUserMember,
+    familyMembers = []
 }) => {
+    // Gyerek színének meghatározása
+    const childMember = isChildMode && childSession 
+        ? familyMembers.find(m => m.id === childSession.childId)
+        : null;
+    const childColor = childMember?.color;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     const handleMenuToggle = () => {
@@ -39,9 +46,34 @@ const CalendarHeader = ({
                         {isChildMode && childSession && (
                             <button
                                 onClick={onProfileClick}
-                                className="ml-2 sm:ml-4 bg-purple-100 hover:bg-purple-200 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                                className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                                style={{
+                                    backgroundColor: childColor ? `${childColor}20` : '#F3E8FF',
+                                    borderColor: childColor ? `${childColor}60` : '#A855F7',
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (childColor) {
+                                        e.currentTarget.style.backgroundColor = `${childColor}30`;
+                                    } else {
+                                        e.currentTarget.style.backgroundColor = '#E9D5FF';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (childColor) {
+                                        e.currentTarget.style.backgroundColor = `${childColor}20`;
+                                    } else {
+                                        e.currentTarget.style.backgroundColor = '#F3E8FF';
+                                    }
+                                }}
                             >
-                                <span className="text-purple-800 text-xs sm:text-sm font-medium">
+                                <span 
+                                    className="text-xs sm:text-sm font-medium"
+                                    style={{
+                                        color: childColor || '#6B21A8'
+                                    }}
+                                >
                                     <span className="text-base sm:text-lg mr-1">{childSession.childAvatar}</span>
                                     <span className="hidden sm:inline">{childSession.childName} (Gyerek)</span>
                                     <span className="sm:hidden">{childSession.childName}</span>
@@ -51,9 +83,34 @@ const CalendarHeader = ({
                         {!isChildMode && (userDisplayName || userEmail) && (
                             <button
                                 onClick={onProfileClick}
-                                className="ml-2 sm:ml-4 bg-green-100 hover:bg-green-200 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                                className="ml-2 sm:ml-4 px-2 sm:px-3 py-1 rounded-full transition duration-200 cursor-pointer"
+                                style={{
+                                    backgroundColor: currentUserMember?.color ? `${currentUserMember.color}20` : '#D1FAE5',
+                                    borderColor: currentUserMember?.color ? `${currentUserMember.color}60` : '#10B981',
+                                    borderWidth: '1px',
+                                    borderStyle: 'solid'
+                                }}
+                                onMouseEnter={(e) => {
+                                    if (currentUserMember?.color) {
+                                        e.currentTarget.style.backgroundColor = `${currentUserMember.color}30`;
+                                    } else {
+                                        e.currentTarget.style.backgroundColor = '#A7F3D0';
+                                    }
+                                }}
+                                onMouseLeave={(e) => {
+                                    if (currentUserMember?.color) {
+                                        e.currentTarget.style.backgroundColor = `${currentUserMember.color}20`;
+                                    } else {
+                                        e.currentTarget.style.backgroundColor = '#D1FAE5';
+                                    }
+                                }}
                             >
-                                <span className="text-green-800 text-xs sm:text-sm font-medium">
+                                <span 
+                                    className="text-xs sm:text-sm font-medium"
+                                    style={{
+                                        color: currentUserMember?.color || '#065F46'
+                                    }}
+                                >
                                     <i className="fas fa-user mr-1"></i>
                                     <span className="hidden sm:inline">{userDisplayName || userEmail}</span>
                                     <span className="sm:hidden">Profil</span>
@@ -144,13 +201,40 @@ const CalendarHeader = ({
                             {isChildMode && childSession && (
                                 <button
                                     onClick={() => handleMenuItemClick(onProfileClick)}
-                                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-50 transition duration-200 mb-2"
+                                    className="w-full text-left px-4 py-3 rounded-lg transition duration-200 mb-2"
+                                    style={{
+                                        backgroundColor: 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (childColor) {
+                                            e.currentTarget.style.backgroundColor = `${childColor}10`;
+                                        } else {
+                                            e.currentTarget.style.backgroundColor = '#F3E8FF';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                    }}
                                 >
                                     <div className="flex items-center">
                                         <span className="text-2xl mr-3">{childSession.childAvatar}</span>
                                         <div>
-                                            <div className="text-purple-800 font-medium">{childSession.childName}</div>
-                                            <div className="text-purple-600 text-sm">Gyerek profil</div>
+                                            <div 
+                                                className="font-medium"
+                                                style={{
+                                                    color: childColor || '#6B21A8'
+                                                }}
+                                            >
+                                                {childSession.childName}
+                                            </div>
+                                            <div 
+                                                className="text-sm"
+                                                style={{
+                                                    color: childColor || '#9333EA'
+                                                }}
+                                            >
+                                                Gyerek profil
+                                            </div>
                                         </div>
                                     </div>
                                 </button>
@@ -158,13 +242,45 @@ const CalendarHeader = ({
                             {!isChildMode && (userDisplayName || userEmail) && (
                                 <button
                                     onClick={() => handleMenuItemClick(onProfileClick)}
-                                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-green-50 transition duration-200 mb-2"
+                                    className="w-full text-left px-4 py-3 rounded-lg transition duration-200 mb-2"
+                                    style={{
+                                        backgroundColor: 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (currentUserMember?.color) {
+                                            e.currentTarget.style.backgroundColor = `${currentUserMember.color}10`;
+                                        } else {
+                                            e.currentTarget.style.backgroundColor = '#F0FDF4';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                    }}
                                 >
                                     <div className="flex items-center">
-                                        <i className="fas fa-user text-green-600 text-xl mr-3"></i>
+                                        <i 
+                                            className="fas fa-user text-xl mr-3"
+                                            style={{
+                                                color: currentUserMember?.color || '#10B981'
+                                            }}
+                                        ></i>
                                         <div>
-                                            <div className="text-green-800 font-medium">{userDisplayName || userEmail}</div>
-                                            <div className="text-green-600 text-sm">Profil</div>
+                                            <div 
+                                                className="font-medium"
+                                                style={{
+                                                    color: currentUserMember?.color || '#065F46'
+                                                }}
+                                            >
+                                                {userDisplayName || userEmail}
+                                            </div>
+                                            <div 
+                                                className="text-sm"
+                                                style={{
+                                                    color: currentUserMember?.color || '#10B981'
+                                                }}
+                                            >
+                                                Profil
+                                            </div>
                                         </div>
                                     </div>
                                 </button>
