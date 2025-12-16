@@ -221,66 +221,68 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
     };
 
     return (
-        <div className="voice-event-input">
-            <div className="flex items-center gap-3">
+        <div className="voice-event-input space-y-3">
+            {/* Gombok sor */}
+            <div className="flex items-center gap-2">
                 {/* Mikrofon gomb */}
                 <button
                     type="button"
                     onClick={toggleListening}
                     disabled={isProcessing}
-                    className={`flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${
+                    className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 flex-shrink-0 ${
                         isListening
                             ? 'bg-red-500 hover:bg-red-600 animate-pulse'
                             : 'bg-blue-500 hover:bg-blue-600'
                     } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title={isListening ? 'Hangfelvétel leállítása' : 'Hangalapú eseményfelvétel'}
                 >
-                    <i className={`fas ${isListening ? 'fa-stop' : 'fa-microphone'} text-white text-lg`}></i>
+                    <i className={`fas ${isListening ? 'fa-stop' : 'fa-microphone'} text-white text-sm`}></i>
                 </button>
-
-                {/* Szöveg input mező */}
-                <div className="flex-1 relative">
-                    <input
-                        type="text"
-                        value={transcript}
-                        onChange={handleTextChange}
-                        placeholder={isListening ? 'Hallgatás...' : 'Írj be szöveget vagy használd a mikrofont...'}
-                        disabled={isProcessing}
-                        className="w-full px-4 py-3 pr-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    />
-                    {/* Törlés gomb (X) */}
-                    {transcript && !isProcessing && (
-                        <button
-                            type="button"
-                            onClick={handleClearText}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="Szöveg törlése"
-                        >
-                            <i className="fas fa-times"></i>
-                        </button>
-                    )}
-                    {/* Feldolgozás indikátor */}
-                    {isProcessing && (
-                        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600">
-                            <i className="fas fa-spinner fa-spin"></i>
-                        </div>
-                    )}
-                </div>
 
                 {/* Felvétel gomb (ha van szöveg) */}
                 {transcript.trim() && !isListening && !isProcessing && (
                     <button
                         type="button"
                         onClick={handleManualSubmit}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
                     >
-                        <i className="fas fa-check mr-2"></i>Felvétel
+                        <i className="fas fa-check text-xs"></i>
+                        <span>Felvétel</span>
                     </button>
                 )}
             </div>
 
+            {/* Szöveg textarea mező */}
+            <div className="relative">
+                <textarea
+                    value={transcript}
+                    onChange={handleTextChange}
+                    placeholder={isListening ? 'Hallgatás...' : 'Írj be szöveget vagy használd a mikrofont...'}
+                    disabled={isProcessing}
+                    rows={3}
+                    className="w-full px-3 py-2 pr-10 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed resize-y min-h-[80px]"
+                />
+                {/* Törlés gomb (X) - jobb felső sarokban */}
+                {transcript && !isProcessing && (
+                    <button
+                        type="button"
+                        onClick={handleClearText}
+                        className="absolute right-2 top-2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                        title="Szöveg törlése"
+                    >
+                        <i className="fas fa-times text-xs"></i>
+                    </button>
+                )}
+                {/* Feldolgozás indikátor */}
+                {isProcessing && (
+                    <div className="absolute right-2 top-2 w-6 h-6 flex items-center justify-center text-blue-600">
+                        <i className="fas fa-spinner fa-spin text-sm"></i>
+                    </div>
+                )}
+            </div>
+
             {/* Segítség szöveg */}
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="text-xs text-gray-500">
                 <p>Példa: "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8kor"</p>
             </div>
         </div>

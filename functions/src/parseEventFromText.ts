@@ -91,9 +91,45 @@ Kérlek, alakítsd át ezt egy JSON objektummá, ami a következő struktúrát 
   "status": "active"
 }
 
-KRITIKUS SZABÁLYOK:
-1. ISMÉTLŐDŐ ESEMÉNYEK:
-   - Ha "hétfő", "kedd", "szerda", "csütörtök", "péntek", "szombat", "vasárnap" van a szövegben:
+KRITIKUS SZABÁLYOK (FONTOS: OLVASD EL FIGYELMESEN!):
+1. EGYSZERI ESEMÉNYEK (ELSŐBBSÉG!):
+   - Ha "egyszeri esemény", "egyszer", "csak egyszer", "nem ismétlődő" vagy hasonló kifejezés van a szövegben:
+     * recurrenceType = "none" (MINDIG!)
+     * date = számítsd ki a dátumot:
+       - Ha napnév van (hétfő, kedd, szerda, csütörtök, péntek, szombat, vasárnap): a KÖVETKEZŐ előfordulás (nem az előző!)
+         * Példa: ha ma szerda van és "hétfő"-t mond, akkor a következő hétfő legyen (5 nap múlva), NEM az előző (2 napja volt)
+         * Ha ma hétfő van és "hétfő"-t mond, akkor ma vagy jövő hétfő (7 nap múlva)
+         * Mindig a jövőbeli napot használd, ha az már elmúlt ezen a héten
+       - Ha nincs napnév: mai dátum (${today})
+       - Ha konkrét dátum van (pl. "december 25", "jövő hét péntek"): a megadott dátum
+     * startDate = null
+     * endDate = null
+     * recurrenceDays = null
+     * FONTOS: Még akkor is "none", ha "hétfő", "kedd" stb. van benne, ha "egyszeri" is van!
+   
+   - Ha konkrét dátum van megadva (pl. "december 25", "jövő hét péntek", "2025-01-20"):
+     * recurrenceType = "none"
+     * date = a megadott dátum (YYYY-MM-DD formátumban)
+     * startDate = null
+     * endDate = null
+     * recurrenceDays = null
+   
+   - Ha napnév van (hétfő, kedd, stb.) ÉS nincs "egyszeri" kifejezés ÉS nincs "minden hétfő", "minden héten":
+     * recurrenceType = "none" (egyszeri esemény, mert nincs "minden" vagy "ismétlődő")
+     * date = a KÖVETKEZŐ előfordulás (nem az előző!)
+     * startDate = null
+     * endDate = null
+     * recurrenceDays = null
+   
+   - Ha nincs dátum megadva ÉS nincs napnév (hétfő, kedd, stb.) ÉS nincs "minden nap", "naponta", "havi":
+     * recurrenceType = "none"
+     * date = mai dátum (${today})
+     * startDate = null
+     * endDate = null
+     * recurrenceDays = null
+
+2. ISMÉTLŐDŐ ESEMÉNYEK (csak akkor, ha NINCS "egyszeri" kifejezés ÉS van "minden", "minden héten", "ismétlődő"):
+   - Ha "minden hétfő", "minden héten hétfő", "hétfőnként", "ismétlődő hétfő" vagy hasonló van:
      * recurrenceType = "weekly"
      * recurrenceDays = [nap száma] (1=hétfő, 2=kedd, 3=szerda, 4=csütörtök, 5=péntek, 6=szombat, 0=vasárnap)
      * date = null (NEM dátum, mert ismétlődő!)
@@ -111,21 +147,6 @@ KRITIKUS SZABÁLYOK:
      * date = null
      * startDate = mai dátum (${today})
      * endDate = null
-
-2. EGYSZERI ESEMÉNYEK:
-   - Ha konkrét dátum van megadva (pl. "december 25", "jövő hét péntek"):
-     * recurrenceType = "none"
-     * date = a megadott dátum (YYYY-MM-DD formátumban)
-     * startDate = null
-     * endDate = null
-     * recurrenceDays = null
-   
-   - Ha nincs dátum megadva ÉS nincs napnév (hétfő, kedd, stb.):
-     * recurrenceType = "none"
-     * date = mai dátum (${today})
-     * startDate = null
-     * endDate = null
-     * recurrenceDays = null
 
 3. HELYSZÍN KINYERÉSE (NAGYON FONTOS!):
    - "anyámnál" -> location: "Anyám háza"
@@ -148,9 +169,15 @@ KRITIKUS SZABÁLYOK:
 
 6. MÁI DÁTUM: ${today}
 
-PÉLDÁK:
-- "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8kor"
-  -> {name: "Vacsora anyámnál", date: null, time: "20:00", location: "Anyám háza", recurrenceType: "weekly", recurrenceDays: [1], startDate: "${today}", endDate: null}
+PÉLDÁK (MÁI DÁTUM: ${today}, MAI NAP: ${new Date().toLocaleDateString('hu-HU', { weekday: 'long' })}):
+- "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8kor" (ha ma szerda van)
+  -> {name: "Vacsora anyámnál", date: "KÖVETKEZŐ_HÉTFŐ_DÁTUMA", time: "20:00", location: "Anyám háza", recurrenceType: "none", startDate: null, endDate: null, recurrenceDays: null}
+
+- "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8:00-kor egyszeri esemény legyen" (ha ma szerda van)
+  -> {name: "Vacsora anyámnál", date: "KÖVETKEZŐ_HÉTFŐ_DÁTUMA", time: "20:00", location: "Anyám háza", recurrenceType: "none", startDate: null, endDate: null, recurrenceDays: null}
+
+- "minden hétfő vacsora" (ismétlődő)
+  -> {name: "Vacsora", date: null, time: "18:00", location: null, recurrenceType: "weekly", recurrenceDays: [1], startDate: "${today}", endDate: null}
 
 - "futás reggel 7kor"
   -> {name: "Futás", date: "${today}", time: "07:00", location: null, recurrenceType: "none"}

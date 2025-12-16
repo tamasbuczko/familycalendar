@@ -500,9 +500,6 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setShowChildProfileModal,
         setShowChildLoginModal,
         
-        // Utility függvények
-        showTemporaryMessage,
-        
         // Reset függvények
         resetEventModal,
         resetQuickAddModal,
