@@ -16,12 +16,32 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const [showAvatar, setShowAvatar] = useState(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
     const [points, setPoints] = useState(event?.points || 10); // Pontok az esemény teljesítéséért (alapértelmezett: 10)
     const [visibility, setVisibility] = useState(event?.visibility || 'family'); // Láthatóság: 'only_me', 'family', 'known_families'
+    const [icon, setIcon] = useState(event?.icon || ''); // Ikon (emoji vagy string)
+    const [color, setColor] = useState(event?.color || ''); // Szín (hex kód vagy string)
 
     // Ismétlődéshez kapcsolódó állapotok
-    const [recurrenceType, setRecurrenceType] = useState(event?.recurrenceType || 'none'); // 'none', 'weekly'
+    // Ha intervallum van (startDate és endDate), akkor 'daily' ismétlődés
+    // Vagy ha már be van állítva a recurrenceType és nem 'none', akkor azt használjuk
+    const initialRecurrenceType = (event?.startDate && event?.endDate) 
+        ? 'daily' 
+        : (event?.recurrenceType && event.recurrenceType !== 'none') 
+            ? event.recurrenceType 
+            : 'none';
+    const [recurrenceType, setRecurrenceType] = useState(initialRecurrenceType); // 'none', 'daily', 'weekly', 'monthly'
+    const [recurrenceFrequency, setRecurrenceFrequency] = useState(() => {
+        // Ha intervallum van, akkor 'daily'
+        if (event?.startDate && event?.endDate) {
+            return 'daily';
+        }
+        // Ha van recurrenceType és nem 'none', akkor azt használjuk, különben 'weekly' (default)
+        if (event?.recurrenceType && event.recurrenceType !== 'none') {
+            return event.recurrenceType;
+        }
+        return 'weekly'; // Default gyakoriság
+    });
     const [startDate, setStartDate] = useState(event?.startDate || new Date().toISOString().split('T')[0]); // Ismétlődő esemény kezdő dátuma
     const [endDate, setEndDate] = useState(event?.endDate || ''); // Ismétlődő esemény befejező dátuma (opcionális)
-    const [recurrenceDays, setRecurrenceDays] = useState(event?.recurrenceDays || []); // Hét napjai (0=Vasárnap, 1=Hétfő...)
+    const [recurrenceDays, setRecurrenceDays] = useState(event?.recurrenceDays || []); // Hét napjai (0=Vasárnap, 1=Hétfő...) - csak heti ismétlődésnél
     
     // Kivétel kezelés: ha ismétlődő esemény előfordulását szerkesztjük, lehetőség kivételként menteni
     const [saveAsException, setSaveAsException] = useState(false);
@@ -47,12 +67,29 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     useEffect(() => {
         if (event) {
             // Ha ismétlődő esemény előfordulása, használjuk a displayDate-et
+            // Ha csak dátum van megadva (pl. hover gombból), akkor azt használjuk
+            // Ha intervallum van (startDate és endDate), akkor azokat használjuk
             const eventDate = event.isRecurringOccurrence && event.displayDate 
                 ? event.displayDate.toISOString().split('T')[0]
                 : (event.date || new Date().toISOString().split('T')[0]);
             
             setName(event.name || '');
             setDate(eventDate);
+            
+            // Ha intervallum van (startDate és endDate), akkor azokat beállítjuk
+            if (event.startDate && event.endDate) {
+                setStartDate(event.startDate);
+                setEndDate(event.endDate);
+                // Intervallum esetén napi ismétlődő esemény a két dátum között
+                setRecurrenceType('daily');
+                setRecurrenceFrequency('daily');
+            }
+            
+            // Ha csak dátum van megadva (új esemény dátummal), akkor az időt is beállítjuk alapértelmezettként
+            if (event.date && !event.name && !event.time) {
+                // Csak dátum van, idő nincs - alapértelmezett időt használunk
+                setTime(event.time || '09:00');
+            }
             setTime(event.time || '09:00');
             setEndTime(event.endTime || '');
             setLocation(event.location || '');
@@ -63,6 +100,8 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setShowAvatar(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
             setPoints(event.points || 10); // Alapértelmezett: 10 pont
             setVisibility(event.visibility || 'family'); // Alapértelmezett: család
+            setIcon(event.icon || ''); // Ikon
+            setColor(event.color || ''); // Szín
             
             // Ha ismétlődő esemény előfordulása, az eredeti esemény recurrenceType-ját használjuk
             // Az eredeti esemény recurrenceType-ját kell használni, hogy látszódjon, hogy ismétlődő
@@ -101,6 +140,8 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setCancellationReason('');
             setPoints(10); // Alapértelmezett: 10 pont
             setVisibility('family'); // Alapértelmezett: család
+            setIcon(''); // Alapértelmezett: nincs ikon
+            setColor(''); // Alapértelmezett: nincs szín
             setRecurrenceType('none');
             setStartDate(new Date().toISOString().split('T')[0]);
             setEndDate('');
@@ -259,6 +300,8 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             showAvatar: showAvatar, // Avatar megjelenítése a naptárban
             points: points, // Pontok az esemény teljesítéséért
             visibility: visibility, // Láthatóság beállítása
+            icon: icon || null, // Ikon (null, ha üres)
+            color: color || null, // Szín (null, ha üres)
             exceptions: event?.exceptions || [], // Megőrizzük a meglévő kivételeket
             reminders: {
                 enabled: remindersEnabled,
@@ -293,15 +336,16 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             eventData.startDate = null;
             eventData.endDate = null;
             eventData.recurrenceDays = [];
-        } else { // 'weekly'
+        } else { // Ismétlődő esemény (daily, weekly, monthly)
             if (!startDate) {
                 showTemporaryMessage('Kérjük, adja meg az ismétlődő esemény kezdő dátumát.');
-                console.log("EventModal: Validation failed - startDate missing for weekly recurrence"); // Debug log
+                console.log("EventModal: Validation failed - startDate missing for recurring event"); // Debug log
                 return;
             }
-            if (recurrenceDays.length === 0) {
+            // Heti ismétlődésnél kötelező legalább egy nap kiválasztása
+            if (recurrenceFrequency === 'weekly' && recurrenceDays.length === 0) {
                 showTemporaryMessage('Kérjük, válasszon legalább egy napot az ismétlődéshez.');
-                console.log("EventModal: Validation failed - no recurrence days selected"); // Debug log
+                console.log("EventModal: Validation failed - no recurrence days selected for weekly"); // Debug log
                 return;
             }
             // Ellenőrizzük, hogy a startDate ne legyen későbbi, mint az endDate, ha az meg van adva
@@ -312,8 +356,8 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             }
             eventData.startDate = startDate;
             eventData.endDate = endDate || null; // Null, ha üres
-            eventData.recurrenceType = recurrenceType;
-            eventData.recurrenceDays = recurrenceDays;
+            eventData.recurrenceType = recurrenceFrequency; // A gyakoriságot használjuk
+            eventData.recurrenceDays = recurrenceFrequency === 'weekly' ? recurrenceDays : []; // Csak heti ismétlődésnél
             eventData.date = null; // Nincs egyedi dátum az ismétlődő esemény definíciójához
         }
 
@@ -536,7 +580,9 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                                 className="form-radio text-blue-600"
                                 value="none"
                                 checked={recurrenceType === 'none'}
-                                onChange={() => setRecurrenceType('none')}
+                                onChange={() => {
+                                    setRecurrenceType('none');
+                                }}
                             />
                             <span className="ml-2 text-gray-700">Egyszeri</span>
                         </label>
@@ -544,11 +590,13 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                             <input
                                 type="radio"
                                 className="form-radio text-blue-600"
-                                value="weekly"
-                                checked={recurrenceType === 'weekly'}
-                                onChange={() => setRecurrenceType('weekly')}
+                                value="recurring"
+                                checked={recurrenceType !== 'none'}
+                                onChange={() => {
+                                    setRecurrenceType(recurrenceFrequency); // A jelenlegi gyakoriságot használjuk
+                                }}
                             />
-                            <span className="ml-2 text-gray-700">Hetente</span>
+                            <span className="ml-2 text-gray-700">Ismétlődő</span>
                         </label>
                     </div>
                 </div>
@@ -567,6 +615,54 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                     </div>
                 ) : (
                     <>
+                        {/* Gyakoriság választás */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Gyakoriság</label>
+                            <div className="flex gap-4">
+                                <label className="inline-flex items-center">
+                                    <input
+                                        type="radio"
+                                        className="form-radio text-blue-600"
+                                        value="daily"
+                                        checked={recurrenceFrequency === 'daily'}
+                                        onChange={() => {
+                                            setRecurrenceFrequency('daily');
+                                            setRecurrenceType('daily');
+                                            setRecurrenceDays([]); // Napi ismétlődésnél nincs szükség napokra
+                                        }}
+                                    />
+                                    <span className="ml-2 text-gray-700">Napi</span>
+                                </label>
+                                <label className="inline-flex items-center">
+                                    <input
+                                        type="radio"
+                                        className="form-radio text-blue-600"
+                                        value="weekly"
+                                        checked={recurrenceFrequency === 'weekly'}
+                                        onChange={() => {
+                                            setRecurrenceFrequency('weekly');
+                                            setRecurrenceType('weekly');
+                                        }}
+                                    />
+                                    <span className="ml-2 text-gray-700">Heti</span>
+                                </label>
+                                <label className="inline-flex items-center">
+                                    <input
+                                        type="radio"
+                                        className="form-radio text-blue-600"
+                                        value="monthly"
+                                        checked={recurrenceFrequency === 'monthly'}
+                                        onChange={() => {
+                                            setRecurrenceFrequency('monthly');
+                                            setRecurrenceType('monthly');
+                                            setRecurrenceDays([]); // Havi ismétlődésnél nincs szükség napokra
+                                        }}
+                                    />
+                                    <span className="ml-2 text-gray-700">Havi</span>
+                                </label>
+                            </div>
+                        </div>
+                        
                         <div>
                             <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">Kezdő dátum</label>
                             <input
@@ -588,23 +684,26 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                                 className="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Ismétlődés napjai</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {weekDaysOptions.map(day => (
-                                    <label key={day.value} className="inline-flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            className="form-checkbox text-blue-600 rounded"
-                                            value={day.value}
-                                            checked={recurrenceDays.includes(day.value)}
-                                            onChange={() => handleRecurrenceDayChange(day.value)}
-                                        />
-                                        <span className="ml-2 text-gray-700">{day.name}</span>
-                                    </label>
-                                ))}
+                        {/* Hét napjai - csak heti ismétlődésnél */}
+                        {recurrenceFrequency === 'weekly' && (
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Ismétlődés napjai</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {weekDaysOptions.map(day => (
+                                        <label key={day.value} className="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                className="form-checkbox text-blue-600 rounded"
+                                                value={day.value}
+                                                checked={recurrenceDays.includes(day.value)}
+                                                onChange={() => handleRecurrenceDayChange(day.value)}
+                                            />
+                                            <span className="ml-2 text-gray-700">{day.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </>
                 )}
 
@@ -898,6 +997,13 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
                         >
                             {event ? "Mentés" : "Hozzáadás"}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="w-full text-center text-gray-600 hover:text-gray-800 font-medium py-2 transition duration-200"
+                        >
+                            Mégse
                         </button>
                     </>
                 )}

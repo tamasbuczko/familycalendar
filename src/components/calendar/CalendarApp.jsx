@@ -95,9 +95,35 @@ const CalendarApp = ({ onLogout }) => {
         state.setShowConfirmModal(true);
     };
 
-    const handleAddEvent = () => {
-        state.setEditingEvent(null);
+    const handleAddEvent = (eventData = null) => {
+        // Ha van eventData (pl. dátum vagy időpont), azt használjuk, különben null
+        state.setEditingEvent(eventData);
         state.setShowEventModal(true);
+    };
+
+    // Quick Add dropdown sablon kiválasztása → EventModal megnyitása
+    const handleQuickAddTemplateSelect = (template) => {
+        const eventData = {
+            name: template.name,
+            icon: template.icon || '',
+            color: template.color || '',
+            assignedTo: template.defaultAssignedTo || '',
+            endTime: template.defaultDuration ? calculateEndTime(template.defaultDuration) : '',
+            recurrenceType: 'none'
+        };
+        
+        state.setEditingEvent(eventData);
+        state.setShowEventModal(true);
+    };
+
+    // EndTime számítása defaultDuration-ból (perc → HH:MM)
+    const calculateEndTime = (durationMinutes) => {
+        const startHour = 9;
+        const startMinute = 0;
+        const totalMinutes = startHour * 60 + startMinute + durationMinutes;
+        const endHour = Math.floor(totalMinutes / 60) % 24;
+        const endMinute = totalMinutes % 60;
+        return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
     };
 
     const handleEditEvent = (event) => {
@@ -153,10 +179,14 @@ const CalendarApp = ({ onLogout }) => {
                 onChildLogout={handleChildLogout}
                 onSettingsClick={handleSettingsClick}
                 onProfileClick={() => state.setShowUserProfileModal(true)}
+                onQuickAddTemplateSelect={handleQuickAddTemplateSelect}
+                onColorPriorityChange={state.setColorPriority}
                 userEmail={auth.currentUser?.email}
                 userDisplayName={state.userDisplayName}
                 currentUserMember={state.currentUserMember}
                 familyMembers={state.familyMembers}
+                userId={userId}
+                userFamilyId={userFamilyId}
             />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -202,6 +232,7 @@ const CalendarApp = ({ onLogout }) => {
                     selectedMemberId={state.selectedMemberId}
                     currentUserMember={state.currentUserMember}
                     isChildMode={isChildMode}
+                    colorPriority={state.colorPriority}
                 />
 
                 {/* Időjárás widget */}

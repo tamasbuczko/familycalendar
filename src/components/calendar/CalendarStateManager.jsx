@@ -13,9 +13,15 @@ export const useCalendarState = (db, userId, userFamilyId) => {
     const [selectedMemberId, setSelectedMemberId] = useState(null); // Kiválasztott családtag ID-ja szűréshez
     const [familyData, setFamilyData] = useState(null);
     const [message, setMessage] = useState('');
+    // Színprioritás: 'tag' (alapértelmezett) vagy 'event'
+    const [colorPriority, setColorPriority] = useState(() => {
+        const saved = localStorage.getItem('eventColorPriority');
+        return saved === 'event' ? 'event' : 'tag';
+    });
 
     // Modal state változók
     const [showEventModal, setShowEventModal] = useState(false);
+    const [showQuickAddModal, setShowQuickAddModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState(null);
     const [showFamilyModal, setShowFamilyModal] = useState(false);
     const [editingFamilyMember, setEditingFamilyMember] = useState(null);
@@ -369,6 +375,10 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setEditingEvent(null);
     };
 
+    const resetQuickAddModal = () => {
+        setShowQuickAddModal(false);
+    };
+
     const resetFamilyModal = () => {
         setShowFamilyModal(false);
         setEditingFamilyMember(null);
@@ -420,9 +430,12 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setSelectedMemberId,
         familyData,
         message,
+        colorPriority,
+        setColorPriority,
         
         // Modal state változók
         showEventModal,
+        showQuickAddModal,
         editingEvent,
         showFamilyModal,
         editingFamilyMember,
@@ -478,6 +491,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setChildLoading,
         setChildLoginLoading,
         setShowEventModal,
+        setShowQuickAddModal,
         setShowFamilyModal,
         setShowConfirmModal,
         setShowInviteModal,
@@ -489,6 +503,7 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         
         // Reset függvények
         resetEventModal,
+        resetQuickAddModal,
         resetFamilyModal,
         resetConfirmModal,
         resetInviteModal,

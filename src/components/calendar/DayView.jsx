@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange, userId, userDisplayName, currentUserMember, isChildMode = false }) => {
+const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onStatusChange, userId, userDisplayName, currentUserMember, isChildMode = false, onAddEvent, colorPriority = 'tag' }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
     const containerRef = useRef(null);
     const hourRefs = useRef({});
+    const [hoveredHour, setHoveredHour] = useState(null);
+    
+    // Drag-to-select state
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragStartHour, setDragStartHour] = useState(null);
+    const [dragCurrentHour, setDragCurrentHour] = useState(null);
 
     // Frissítjük az aktuális időt minden percben
     useEffect(() => {
@@ -109,9 +115,93 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
             eventsByHour[hour].push(event);
         }
     });
+    
+    // Drag-to-select funkciók
+    const handleMouseDown = (hour) => {
+        setIsDragging(true);
+        setDragStartHour(hour);
+        setDragCurrentHour(hour);
+    };
+    
+    const handleMouseMove = (hour) => {
+        if (isDragging && dragStartHour !== null) {
+            setDragCurrentHour(hour);
+        }
+    };
+    
+    const handleMouseUp = () => {
+        if (isDragging && dragStartHour !== null && dragCurrentHour !== null && onAddEvent) {
+            const startHour = Math.min(dragStartHour, dragCurrentHour);
+            const endHour = Math.max(dragStartHour, dragCurrentHour);
+            
+            // Csak akkor nyitjuk meg az ablakot, ha van kijelölt tartomány (legalább 1 óra különbség)
+            if (startHour !== endHour) {
+                // Helyi időzónában formázzuk a dátumot (ne UTC-ben)
+                const dateString = (() => {
+                    if (date instanceof Date) {
+                        const d = date;
+                        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    } else if (typeof date === 'string') {
+                        return date;
+                    } else {
+                        const d = new Date();
+                        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    }
+                })();
+                
+                const startTime = `${startHour.toString().padStart(2, '0')}:00`;
+                const endTime = `${(endHour + 1).toString().padStart(2, '0')}:00`; // Vég óra + 1 óra
+                
+                const eventData = {
+                    date: dateString,
+                    time: startTime,
+                    endTime: endTime,
+                    recurrenceType: 'none'
+                };
+                
+                onAddEvent(eventData);
+            }
+        }
+        
+        setIsDragging(false);
+        setDragStartHour(null);
+        setDragCurrentHour(null);
+    };
+    
+    // Globális mouse up listener
+    useEffect(() => {
+        if (isDragging) {
+            const handleGlobalMouseUp = () => {
+                handleMouseUp();
+            };
+            
+            window.addEventListener('mouseup', handleGlobalMouseUp);
+            return () => {
+                window.removeEventListener('mouseup', handleGlobalMouseUp);
+            };
+        }
+    }, [isDragging, dragStartHour, dragCurrentHour, onAddEvent, date]);
+    
+    // Kijelölt tartomány számítása
+    const getSelectedRange = () => {
+        if (!isDragging || dragStartHour === null || dragCurrentHour === null) {
+            return null;
+        }
+        
+        const start = Math.min(dragStartHour, dragCurrentHour);
+        const end = Math.max(dragStartHour, dragCurrentHour);
+        
+        return { start, end };
+    };
+    
+    const selectedRange = getSelectedRange();
 
     return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" ref={containerRef}>
+        <div 
+            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden relative" 
+            ref={containerRef}
+            onMouseUp={handleMouseUp}
+        >
             <div className="divide-y divide-gray-200 relative">
                 {hours.map(hour => {
                     const hourEvents = eventsByHour[hour] || [];
@@ -120,14 +210,68 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                     const hasEvents = hourEvents.length > 0;
                     const isCurrentHour = timePosition && timePosition.hour === hour;
                     
+                    const isHovered = hoveredHour === hour;
+                    // Helyi időzónában formázzuk a dátumot (ne UTC-ben)
+                    const dateString = (() => {
+                        if (date instanceof Date) {
+                            const d = date;
+                            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        } else if (typeof date === 'string') {
+                            return date;
+                        } else {
+                            const d = new Date();
+                            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        }
+                    })();
+                    
+                    // Ellenőrizzük, hogy ez az óra a kijelölt tartományban van-e
+                    const isInSelectedRange = selectedRange && hour >= selectedRange.start && hour <= selectedRange.end;
+                    
                     return (
                         <div 
                             key={hour} 
-                            className={`flex ${hasEvents ? 'min-h-[80px]' : 'min-h-[40px]'} hover:bg-gray-50 transition-colors relative`}
+                            className={`flex ${hasEvents ? 'min-h-[80px]' : 'min-h-[40px]'} hover:bg-gray-50 transition-colors relative cursor-pointer select-none`}
                             ref={el => {
                                 if (el) hourRefs.current[hour] = el;
                             }}
+                            onMouseEnter={() => {
+                                setHoveredHour(hour);
+                                handleMouseMove(hour);
+                            }}
+                            onMouseLeave={() => {
+                                if (!isDragging) {
+                                    setHoveredHour(null);
+                                }
+                            }}
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleMouseDown(hour);
+                            }}
+                            style={isInSelectedRange ? {
+                                backgroundColor: '#DBEAFE', // Kék háttér a kijelölt tartományhoz
+                                borderTop: hour === selectedRange.start ? '2px solid #3B82F6' : undefined,
+                                borderBottom: hour === selectedRange.end ? '2px solid #3B82F6' : undefined
+                            } : {}}
                         >
+                            {/* Plusz gomb - csak hover esetén, jobb felső sarokban */}
+                            {isHovered && onAddEvent && (
+                                <button
+                                    onClick={() => {
+                                        // Az esemény hozzáadó ablak megnyitása a kiválasztott nappal és órával
+                                        const eventData = {
+                                            date: dateString,
+                                            time: `${hour.toString().padStart(2, '0')}:00`,
+                                            recurrenceType: 'none'
+                                        };
+                                        onAddEvent(eventData);
+                                    }}
+                                    className="absolute top-2 right-2 bg-green-500 hover:bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg opacity-80 hover:opacity-100 transition-all duration-200 z-10"
+                                    title={`Esemény hozzáadása ${hourString}-ra`}
+                                >
+                                    <i className="fas fa-plus text-xs"></i>
+                                </button>
+                            )}
+                            
                             {/* Aktuális idő piros vonala - csak az aktuális órán belül */}
                             {isCurrentHour && timePosition && (
                                 <div
@@ -190,7 +334,11 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                     minHeight: `${Math.max(60, heightPercent)}px`,
                                                     ...(event.status !== 'cancelled' && event.status !== 'deleted' ? {
                                                         backgroundColor: (() => {
-                                                            // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                            // Ha event color priority és van event.color, azt használjuk
+                                                            if (colorPriority === 'event' && event.color) {
+                                                                return `${event.color}20`;
+                                                            }
+                                                            // Különben a tag színét használjuk (jelenlegi logika)
                                                             if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
                                                                 if (currentUserMember.color) {
                                                                     return `${currentUserMember.color}20`;
@@ -203,7 +351,11 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                             return '#DBEAFE'; // Alapértelmezett kék
                                                         })(),
                                                         borderColor: (() => {
-                                                            // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                            // Ha event color priority és van event.color, azt használjuk
+                                                            if (colorPriority === 'event' && event.color) {
+                                                                return `${event.color}60`;
+                                                            }
+                                                            // Különben a tag színét használjuk (jelenlegi logika)
                                                             if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
                                                                 if (currentUserMember.color) {
                                                                     return `${currentUserMember.color}60`;
@@ -216,7 +368,11 @@ const DayView = ({ date, events, familyMembers, onEditEvent, onDeleteEvent, onSt
                                                             return '#93C5FD'; // Alapértelmezett kék
                                                         })(),
                                                         color: (() => {
-                                                            // Először nézzük meg, hogy a currentUserMember-e van hozzárendelve
+                                                            // Ha event color priority és van event.color, azt használjuk
+                                                            if (colorPriority === 'event' && event.color) {
+                                                                return event.color;
+                                                            }
+                                                            // Különben a tag színét használjuk (jelenlegi logika)
                                                             if (currentUserMember && (event.assignedTo === currentUserMember.id || (event.assignedTo && event.assignedTo.startsWith('user_') && userId && event.assignedTo === `user_${userId}`))) {
                                                                 if (currentUserMember.color) {
                                                                     return currentUserMember.color;

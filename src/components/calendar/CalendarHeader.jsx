@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ColorPriorityToggle from '../ui/ColorPriorityToggle.jsx';
+import QuickAddDropdown from '../ui/QuickAddDropdown.jsx';
 
 const CalendarHeader = ({ 
     familyName, 
@@ -9,11 +12,17 @@ const CalendarHeader = ({
     onChildLogout,
     onSettingsClick,
     onProfileClick,
+    onQuickAddTemplateSelect,
+    onColorPriorityChange,
     userEmail,
     userDisplayName,
     currentUserMember,
-    familyMembers = []
+    familyMembers = [],
+    userId,
+    userFamilyId
 }) => {
+    const navigate = useNavigate();
+    
     // Gyerek színének meghatározása
     const childMember = isChildMode && childSession 
         ? familyMembers.find(m => m.id === childSession.childId)
@@ -134,13 +143,32 @@ const CalendarHeader = ({
                                 <i className="fas fa-sign-out-alt mr-2"></i>Kilépés
                             </button>
                         ) : (
-                            // Admin mód - gyerek bejelentkezés, beállítások, család választó gombok
+                            // Admin mód - gyerek bejelentkezés, ismétlődő események, beállítások, család választó gombok
                             <>
+                                <ColorPriorityToggle onChange={onColorPriorityChange} />
+                                <QuickAddDropdown 
+                                    onTemplateSelect={onQuickAddTemplateSelect}
+                                    userId={userId}
+                                    userFamilyId={userFamilyId}
+                                />
+                                <button
+                                    onClick={() => navigate('/app/templates')}
+                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
+                                    title="Sablonok Menedzsmentje"
+                                >
+                                    <i className="fas fa-layer-group mr-2"></i>Sablonok
+                                </button>
                                 <button
                                     onClick={onChildLoginClick}
                                     className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
                                 >
                                     <i className="fas fa-child mr-2"></i>Gyerek Bejelentkezés
+                                </button>
+                                <button
+                                    onClick={() => navigate('/app/recurring-events')}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
+                                >
+                                    <i className="fas fa-redo mr-2"></i>Ismétlődő Események
                                 </button>
                                 <button
                                     onClick={onSettingsClick}
@@ -315,13 +343,28 @@ const CalendarHeader = ({
                                     <i className="fas fa-sign-out-alt mr-3"></i>Kilépés
                                 </button>
                             ) : (
-                                // Admin mód - gyerek bejelentkezés, beállítások, család választó gombok
+                                // Admin mód - gyerek bejelentkezés, ismétlődő események, beállítások, család választó gombok
                                 <>
+                                    <div className="px-4 py-2 mb-2">
+                                        <ColorPriorityToggle onChange={onColorPriorityChange} />
+                                    </div>
                                     <button
                                         onClick={() => handleMenuItemClick(onChildLoginClick)}
                                         className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-50 transition duration-200 text-purple-600 mb-2"
                                     >
                                         <i className="fas fa-child mr-3"></i>Gyerek Bejelentkezés
+                                    </button>
+                                    <button
+                                        onClick={() => handleMenuItemClick(() => navigate('/app/templates'))}
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-green-50 transition duration-200 text-green-600 mb-2"
+                                    >
+                                        <i className="fas fa-layer-group mr-3"></i>Sablonok
+                                    </button>
+                                    <button
+                                        onClick={() => handleMenuItemClick(() => navigate('/app/recurring-events'))}
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-indigo-50 transition duration-200 text-indigo-600 mb-2"
+                                    >
+                                        <i className="fas fa-redo mr-3"></i>Ismétlődő Események
                                     </button>
                                     <button
                                         onClick={() => handleMenuItemClick(onSettingsClick)}

@@ -16,7 +16,8 @@ const CalendarControls = ({
     userDisplayName,
     selectedMemberId,
     currentUserMember,
-    isChildMode = false
+    isChildMode = false,
+    colorPriority = 'tag'
 }) => {
     // Szűrés a kiválasztott családtag szerint
     let filteredEvents = selectedMemberId 
@@ -84,6 +85,7 @@ const CalendarControls = ({
                 userDisplayName={userDisplayName}
                 currentUserMember={currentUserMember}
                 isChildMode={isChildMode}
+                colorPriority={colorPriority}
             />
         </div>
     );

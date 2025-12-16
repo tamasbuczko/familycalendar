@@ -14,7 +14,7 @@ const ModalsContainer = ({
     editingEvent,
     onSaveEvent,
     onCloseEventModal,
-    familyMembers,
+    familyMembers = [],
     showTemporaryMessage,
     userId,
     onStatusChange,
@@ -70,6 +70,7 @@ const ModalsContainer = ({
     userDisplayName,
     userProfileLoading,
     currentUserMember,
+    
     
     // Child mode props
     isChildMode,
@@ -210,6 +211,7 @@ const ModalsContainer = ({
                 />
                 );
             })()}
+
         </>
     );
 };

@@ -68,7 +68,7 @@ export const useCalendarUtils = () => {
                         originalEventId: event.id,
                     });
                 }
-            } else if (event.recurrenceType === 'weekly') {
+            } else if (event.recurrenceType === 'daily' || event.recurrenceType === 'weekly' || event.recurrenceType === 'monthly') {
                 const eventStartDate = new Date(event.startDate);
                 eventStartDate.setHours(0, 0, 0, 0);
                 const eventEndDate = event.endDate ? new Date(event.endDate) : null;
@@ -79,8 +79,25 @@ export const useCalendarUtils = () => {
                     currentDayStart.setHours(0, 0, 0, 0);
                     // Ellenőrizzük, hogy a nap az ismétlődő esemény dátumtartományán belül van-e
                     if (currentDayStart >= eventStartDate && (!eventEndDate || currentDayStart <= eventEndDate)) {
-                        // Ellenőrizzük, hogy a hét napja megegyezik-e
-                        if (event.recurrenceDays && event.recurrenceDays.includes(day.getDay())) {
+                        let shouldInclude = false;
+                        
+                        if (event.recurrenceType === 'daily') {
+                            // Napi ismétlődés: minden nap
+                            shouldInclude = true;
+                        } else if (event.recurrenceType === 'weekly') {
+                            // Heti ismétlődés: csak a kiválasztott napokon
+                            if (event.recurrenceDays && event.recurrenceDays.includes(day.getDay())) {
+                                shouldInclude = true;
+                            }
+                        } else if (event.recurrenceType === 'monthly') {
+                            // Havi ismétlődés: ugyanazon a napon a hónapban (pl. minden hónap 15-én)
+                            const startDay = eventStartDate.getDate();
+                            if (day.getDate() === startDay) {
+                                shouldInclude = true;
+                            }
+                        }
+                        
+                        if (shouldInclude) {
                             // Ellenőrizzük a kivételeket erre a specifikus előfordulásra
                             // A dátum formátuma: YYYY-MM-DD (string)
                             const dayDateString = day.toISOString().split('T')[0];
