@@ -430,6 +430,8 @@ export const useCalendarState = (db, userId, userFamilyId) => {
         setSelectedMemberId,
         familyData,
         message,
+        setMessage,
+        showTemporaryMessage,
         colorPriority,
         setColorPriority,
         

@@ -9,6 +9,7 @@ import CalendarControls from './CalendarControls.jsx';
 import ModalsContainer from './ModalsContainer.jsx';
 import MessageDisplay from './MessageDisplay.jsx';
 import WeatherWidget from './WeatherWidget.jsx';
+import VoiceEventInput from '../ui/VoiceEventInput.jsx';
 
 // Import the new hooks
 import { useCalendarState } from './CalendarStateManager.jsx';
@@ -109,7 +110,8 @@ const CalendarApp = ({ onLogout }) => {
             color: template.color || '',
             assignedTo: template.defaultAssignedTo || '',
             endTime: template.defaultDuration ? calculateEndTime(template.defaultDuration) : '',
-            recurrenceType: 'none'
+            recurrenceType: 'none',
+            status: 'active' // Sablonból létrehozott esemény automatikusan aktív
         };
         
         state.setEditingEvent(eventData);
@@ -190,31 +192,56 @@ const CalendarApp = ({ onLogout }) => {
             />
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <FamilyMembersSection
-                    familyMembers={state.familyMembers}
-                    onAddMember={handleAddMember}
-                    onInviteMember={() => state.setShowInviteModal(true)}
-                    onChildProfile={() => {
-                        console.log("CalendarApp: Child profile button clicked, setting showFamilyModal to true");
-                        state.setEditingFamilyMember(null);
-                        state.setFamilyMemberType('child');
-                        state.setShowFamilyModal(true);
-                    }}
-                    onEditMember={handleEditMember}
-                    onDeleteMember={handleDeleteMember}
-                    onMemberClick={(memberId) => {
-                        // Ha ugyanarra a tagra kattintunk, töröljük a szűrést
-                        if (state.selectedMemberId === memberId) {
-                            state.setSelectedMemberId(null);
-                        } else {
-                            state.setSelectedMemberId(memberId);
-                        }
-                    }}
-                    selectedMemberId={state.selectedMemberId}
-                    currentUserMember={state.currentUserMember}
-                    userId={userId}
-                    isChildMode={isChildMode}
-                />
+                <div className="flex flex-col lg:flex-row gap-6 mb-6">
+                    {/* Családtagok szekció */}
+                    <div className="flex-1">
+                        <FamilyMembersSection
+                            familyMembers={state.familyMembers}
+                            onAddMember={handleAddMember}
+                            onInviteMember={() => state.setShowInviteModal(true)}
+                            onChildProfile={() => {
+                                console.log("CalendarApp: Child profile button clicked, setting showFamilyModal to true");
+                                state.setEditingFamilyMember(null);
+                                state.setFamilyMemberType('child');
+                                state.setShowFamilyModal(true);
+                            }}
+                            onEditMember={handleEditMember}
+                            onDeleteMember={handleDeleteMember}
+                            onMemberClick={(memberId) => {
+                                // Ha ugyanarra a tagra kattintunk, töröljük a szűrést
+                                if (state.selectedMemberId === memberId) {
+                                    state.setSelectedMemberId(null);
+                                } else {
+                                    state.setSelectedMemberId(memberId);
+                                }
+                            }}
+                            selectedMemberId={state.selectedMemberId}
+                            currentUserMember={state.currentUserMember}
+                            userId={userId}
+                            isChildMode={isChildMode}
+                        />
+                    </div>
+
+                    {/* Hangalapú eseményfelvétel doboz */}
+                    {!isChildMode && (
+                        <div className="bg-white p-6 rounded-lg shadow-md w-full lg:w-96">
+                            <h2 className="text-xl font-semibold text-gray-700 mb-4">
+                                <i className="fas fa-microphone mr-2 text-blue-600"></i>
+                                Hangalapú eseményfelvétel
+                            </h2>
+                            <VoiceEventInput
+                                familyId={userFamilyId}
+                                onEventCreated={(eventId, event) => {
+                                    // Esemény sikeresen létrehozva - a state automatikusan frissül a Firestore listener miatt
+                                    state.showTemporaryMessage(`Esemény sikeresen létrehozva: ${event?.name || 'Esemény'}`);
+                                }}
+                                onError={(error) => {
+                                    state.showTemporaryMessage(`Hiba: ${error}`);
+                                }}
+                            />
+                        </div>
+                    )}
+                </div>
 
                 <CalendarControls
                     currentDate={state.currentDate}
