@@ -30,6 +30,11 @@ service cloud.firestore {
       match /member_points/{memberId} {
         allow read, write: if isAuthenticated();
       }
+      
+      // User templates (sablonok)
+      match /userTemplates/{templateId} {
+        allow read, write: if isAuthenticated();
+      }
     }
     
     // Family listing
