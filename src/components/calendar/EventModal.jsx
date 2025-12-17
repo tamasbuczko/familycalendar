@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Modal from '../ui/Modal.jsx';
 import { useNotifications } from '../../hooks/useNotifications.js';
+import { globalTemplates } from '../../data/globalTemplates.js';
 
 // Esemény Modal komponens
 const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessage, userId, onStatusChange, userDisplayName, currentUserMember }) => {
@@ -11,13 +12,47 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     const [location, setLocation] = useState(event?.location || '');
     const [assignedTo, setAssignedTo] = useState(event?.assignedTo || '');
     const [notes, setNotes] = useState(event?.notes || ''); // Új: megjegyzések
-    const [status, setStatus] = useState(event?.status || 'active');
+    // Ha sablon szerkesztésről van szó (isTemplateEdit), akkor ne legyen alapértelmezett státusz
+    const [status, setStatus] = useState(() => {
+        if (event?.isTemplateEdit) {
+            return event?.status || 'inactive'; // Sablon esetén inaktív alapértelmezett
+        }
+        return event?.status || 'active'; // Esemény esetén aktív alapértelmezett
+    });
     const [cancellationReason, setCancellationReason] = useState(event?.cancellationReason || '');
     const [showAvatar, setShowAvatar] = useState(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
     const [points, setPoints] = useState(event?.points || 10); // Pontok az esemény teljesítéséért (alapértelmezett: 10)
     const [visibility, setVisibility] = useState(event?.visibility || 'family'); // Láthatóság: 'only_me', 'family', 'known_families'
     const [icon, setIcon] = useState(event?.icon || ''); // Ikon (emoji vagy string)
     const [color, setColor] = useState(event?.color || ''); // Szín (hex kód vagy string)
+    const [showIconPicker, setShowIconPicker] = useState(false); // Ikon választó megjelenítése
+    const iconPickerRef = useRef(null); // Ref az ikon választóhoz
+    
+    // Összegyűjtjük az összes egyedi emoji-t
+    const availableEmojis = useMemo(() => {
+        // Összegyűjtjük az összes egyedi emoji-t a globalTemplates-ből
+        const uniqueEmojis = [...new Set(globalTemplates.map(t => t.icon).filter(Boolean))];
+        // Hozzáadunk néhány általános emoji-t is
+        const commonEmojis = ['📅', '⭐', '❤️', '✅', '❌', '⚠️', '💡', '🎯', '🏆', '💪', '🌟', '🔥'];
+        return [...new Set([...uniqueEmojis, ...commonEmojis])].sort();
+    }, []);
+    
+    // Kattintás kívülre zárja az ikon választót
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (iconPickerRef.current && !iconPickerRef.current.contains(event.target)) {
+                setShowIconPicker(false);
+            }
+        };
+        
+        if (showIconPicker) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showIconPicker]);
 
     // Ismétlődéshez kapcsolódó állapotok
     // Ha intervallum van (startDate és endDate), akkor 'daily' ismétlődés
@@ -95,7 +130,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setLocation(event.location || '');
             setAssignedTo(event.assignedTo || '');
             setNotes(event.notes || '');
-            setStatus(event.status || 'active');
+            setStatus(event.status || (event.isTemplateEdit ? 'inactive' : 'active'));
             setCancellationReason(event.cancellationReason || '');
             setShowAvatar(event?.showAvatar !== false); // Alapértelmezetten true, ha nincs beállítva
             setPoints(event.points || 10); // Alapértelmezett: 10 pont
@@ -136,7 +171,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
             setLocation('');
             setAssignedTo('');
             setNotes('');
-            setStatus('active');
+            setStatus(event?.isTemplateEdit ? 'inactive' : 'active');
             setCancellationReason('');
             setPoints(10); // Alapértelmezett: 10 pont
             setVisibility('family'); // Alapértelmezett: család
@@ -366,7 +401,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
     };
 
     return (
-        <Modal onClose={onClose} title={event ? "Esemény szerkesztése" : "Új esemény hozzáadása"}>
+        <Modal onClose={onClose} title={event?.id ? "Esemény szerkesztése" : (event?.name && !event?.date ? "Esemény hozzáadása sablonból" : "Új esemény hozzáadása")}>
             <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Ha lemondott esemény, csak a lemondás okát és a visszaállítás gombot mutatjuk */}
                 {event && status === 'cancelled' ? (
@@ -507,6 +542,95 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                         </div>
                     )}
                 </div>
+                {/* Ikon választó */}
+                <div className="relative" ref={iconPickerRef}>
+                    <label htmlFor="eventIcon" className="block text-sm font-medium text-gray-700">Ikon (opcionális)</label>
+                    <div className="mt-1 relative">
+                        <button
+                            type="button"
+                            onClick={() => setShowIconPicker(!showIconPicker)}
+                            className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white text-left flex items-center justify-between"
+                        >
+                            <div className="flex items-center gap-2">
+                                {icon ? (
+                                    <>
+                                        <span className="text-2xl">{icon}</span>
+                                        <span className="text-sm text-gray-600">{icon}</span>
+                                    </>
+                                ) : (
+                                    <span className="text-gray-500">Válassz ikont...</span>
+                                )}
+                            </div>
+                            <i className={`fas fa-chevron-${showIconPicker ? 'up' : 'down'} text-gray-400`}></i>
+                        </button>
+                        
+                        {showIconPicker && (
+                            <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
+                                <div className="p-2 grid grid-cols-8 gap-1">
+                                    {availableEmojis.map(emoji => (
+                                        <button
+                                            key={emoji}
+                                            type="button"
+                                            onClick={() => {
+                                                setIcon(emoji);
+                                                setShowIconPicker(false);
+                                            }}
+                                            className={`p-2 text-2xl rounded hover:bg-gray-100 transition-colors flex items-center justify-center ${
+                                                icon === emoji ? 'bg-blue-100 ring-2 ring-blue-500' : ''
+                                            }`}
+                                            title={emoji}
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="p-2 border-t border-gray-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setIcon('');
+                                            setShowIconPicker(false);
+                                        }}
+                                        className="w-full text-sm text-gray-600 hover:text-gray-800 py-1"
+                                    >
+                                        Ikon eltávolítása
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Szín választó */}
+                <div>
+                    <label htmlFor="eventColor" className="block text-sm font-medium text-gray-700">Szín (opcionális)</label>
+                    <div className="mt-1 flex items-center gap-2">
+                        <input
+                            type="color"
+                            id="eventColor"
+                            value={color || '#3B82F6'}
+                            onChange={(e) => setColor(e.target.value)}
+                            className="block w-20 h-12 border border-gray-300 rounded-lg shadow-sm cursor-pointer"
+                        />
+                        <input
+                            type="text"
+                            value={color}
+                            onChange={(e) => setColor(e.target.value)}
+                            placeholder="#3B82F6"
+                            pattern="^#[0-9A-Fa-f]{6}$"
+                            className="flex-1 p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => setColor('')}
+                            className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                        >
+                            Törlés
+                        </button>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">Válassz színt az eseményhez, vagy hagyd üresen</p>
+                </div>
+
                 <div>
                     <label htmlFor="notes" className="block text-sm font-medium text-gray-700">Megjegyzések</label>
                     <textarea
@@ -707,7 +831,8 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                     </>
                 )}
 
-                {event && !event.isRecurringOccurrence && ( // Csak szerkesztéskor jelenjen meg a státusz (az eredeti esemény státusza)
+                {/* Státusz választó - csak esemény szerkesztésnél vagy új esemény létrehozásánál, NEM sablon létrehozásánál */}
+                {!event?.isTemplateEdit && (event && !event.isRecurringOccurrence || !event) && (
                     <div>
                         <label htmlFor="eventStatus" className="block text-sm font-medium text-gray-700">Státusz</label>
                         <select
@@ -718,7 +843,7 @@ const EventModal = ({ event, onSave, onClose, familyMembers, showTemporaryMessag
                         >
                             <option value="active">Aktív</option>
                             <option value="cancelled">Lemondva</option>
-                            {/* A "deleted" státuszt itt nem engedjük, mert az törlésre vonatkozik */}
+                            {/* A "deleted" és "inactive" státuszt itt nem engedjük, mert azok belső működéshez kellenek */}
                         </select>
                     </div>
                 )}

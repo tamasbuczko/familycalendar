@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getWeatherData = exports.saveUserNotificationPreferences = exports.getUserNotificationPreferences = exports.sendTestNotification = exports.checkWeather = exports.sendNotifications = exports.onEventCreated = void 0;
+exports.getWeatherData = exports.saveUserNotificationPreferences = exports.getUserNotificationPreferences = exports.sendTestNotification = exports.parseEventFromText = exports.createEvent = exports.onMemberCreated = exports.onMemberUpdated = exports.onAnnualEventUpdated = exports.onAnnualEventCreated = exports.syncAnnualEventsScheduled = exports.checkWeather = exports.sendNotifications = exports.onEventCreated = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // Firebase Admin inicializálás
@@ -9,6 +9,11 @@ admin.initializeApp();
 const notifications_1 = require("./notifications");
 const scheduledNotifications_1 = require("./scheduledNotifications");
 const weatherAlerts_1 = require("./weatherAlerts");
+const createEvent_1 = require("./createEvent");
+Object.defineProperty(exports, "createEvent", { enumerable: true, get: function () { return createEvent_1.createEvent; } });
+const parseEventFromText_1 = require("./parseEventFromText");
+Object.defineProperty(exports, "parseEventFromText", { enumerable: true, get: function () { return parseEventFromText_1.parseEventFromText; } });
+const annualEvents_1 = require("./annualEvents");
 // Esemény létrehozásakor értesítések ütemezése
 exports.onEventCreated = functions.firestore
     .document('artifacts/{projectId}/families/{familyId}/events/{eventId}')
@@ -26,6 +31,114 @@ exports.checkWeather = functions.pubsub
     .schedule('every 6 hours')
     .onRun(async (context) => {
     return await (0, weatherAlerts_1.checkWeatherAndSendAlerts)(context);
+});
+// Éves események szinkronizálása - naponta 02:00-kor
+exports.syncAnnualEventsScheduled = functions.pubsub
+    .schedule('0 2 * * *') // Naponta 02:00 UTC (04:00 magyar idő)
+    .timeZone('Europe/Budapest')
+    .onRun(async (context) => {
+    var _a;
+    const projectId = process.env.GCLOUD_PROJECT || ((_a = functions.config().project) === null || _a === void 0 ? void 0 : _a.id) || 'familyweekroutine';
+    return await (0, annualEvents_1.syncAnnualEvents)(projectId);
+});
+// Annual Event létrehozásakor/módosításakor események generálása
+exports.onAnnualEventCreated = functions.firestore
+    .document('artifacts/{projectId}/families/{familyId}/annualEvents/{annualEventId}')
+    .onCreate(async (snap, context) => {
+    const projectId = context.params.projectId;
+    const familyId = context.params.familyId;
+    const annualEventId = context.params.annualEventId;
+    const annualEventData = snap.data();
+    // Prémium státusz ellenőrzése
+    const familyDoc = await admin.firestore()
+        .doc(`artifacts/${projectId}/families/${familyId}`)
+        .get();
+    const familyData = familyDoc.data();
+    const isPremium = (familyData === null || familyData === void 0 ? void 0 : familyData.isPremium) === true || false;
+    // Generálás
+    await (0, annualEvents_1.generateAnnualEventsForEvent)(familyId, projectId, annualEventId, annualEventData, isPremium);
+});
+exports.onAnnualEventUpdated = functions.firestore
+    .document('artifacts/{projectId}/families/{familyId}/annualEvents/{annualEventId}')
+    .onUpdate(async (change, context) => {
+    const projectId = context.params.projectId;
+    const familyId = context.params.familyId;
+    const annualEventId = context.params.annualEventId;
+    const newData = change.after.data();
+    const oldData = change.before.data();
+    // Csak akkor generálunk újra, ha a dátum vagy típus változott
+    if (oldData.date !== newData.date || oldData.type !== newData.type || oldData.name !== newData.name) {
+        // Töröljük a régi eseményeket
+        const oldEventsSnapshot = await admin.firestore()
+            .collection(`artifacts/${projectId}/families/${familyId}/events`)
+            .where('annualEventId', '==', annualEventId)
+            .get();
+        const batch = admin.firestore().batch();
+        oldEventsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        // Prémium státusz ellenőrzése
+        const familyDoc = await admin.firestore()
+            .doc(`artifacts/${projectId}/families/${familyId}`)
+            .get();
+        const familyData = familyDoc.data();
+        const isPremium = (familyData === null || familyData === void 0 ? void 0 : familyData.isPremium) === true || false;
+        // Új események generálása
+        await (0, annualEvents_1.generateAnnualEventsForEvent)(familyId, projectId, annualEventId, newData, isPremium);
+    }
+});
+// Member születésnap változásakor események generálása
+exports.onMemberUpdated = functions.firestore
+    .document('artifacts/{projectId}/families/{familyId}/members/{memberId}')
+    .onUpdate(async (change, context) => {
+    const projectId = context.params.projectId;
+    const familyId = context.params.familyId;
+    const memberId = context.params.memberId;
+    const before = change.before.data();
+    const after = change.after.data();
+    // Csak akkor generálunk, ha a birthDate változott
+    if (before.birthDate !== after.birthDate) {
+        // Töröljük a régi születésnap eseményeket
+        const annualEventId = `member-birthday-${memberId}`;
+        const oldEventsSnapshot = await admin.firestore()
+            .collection(`artifacts/${projectId}/families/${familyId}/events`)
+            .where('annualEventId', '==', annualEventId)
+            .get();
+        const batch = admin.firestore().batch();
+        oldEventsSnapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+        await batch.commit();
+        // Prémium státusz ellenőrzése
+        const familyDoc = await admin.firestore()
+            .doc(`artifacts/${projectId}/families/${familyId}`)
+            .get();
+        const familyData = familyDoc.data();
+        const isPremium = (familyData === null || familyData === void 0 ? void 0 : familyData.isPremium) === true || false;
+        // Új események generálása (ha van birthDate)
+        if (after.birthDate) {
+            await (0, annualEvents_1.generateBirthdayEventsForMember)(familyId, projectId, memberId, after, isPremium);
+        }
+    }
+});
+exports.onMemberCreated = functions.firestore
+    .document('artifacts/{projectId}/families/{familyId}/members/{memberId}')
+    .onCreate(async (snap, context) => {
+    const projectId = context.params.projectId;
+    const familyId = context.params.familyId;
+    const memberId = context.params.memberId;
+    const memberData = snap.data();
+    // Prémium státusz ellenőrzése
+    const familyDoc = await admin.firestore()
+        .doc(`artifacts/${projectId}/families/${familyId}`)
+        .get();
+    const familyData = familyDoc.data();
+    const isPremium = (familyData === null || familyData === void 0 ? void 0 : familyData.isPremium) === true || false;
+    // Generálás (ha van birthDate)
+    if (memberData.birthDate) {
+        await (0, annualEvents_1.generateBirthdayEventsForMember)(familyId, projectId, memberId, memberData, isPremium);
+    }
 });
 // Teszt értesítés küldése
 exports.sendTestNotification = functions.https.onCall(async (data, context) => {

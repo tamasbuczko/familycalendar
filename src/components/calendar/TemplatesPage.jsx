@@ -22,6 +22,7 @@ const TemplatesPage = ({ onLogout }) => {
     // Modal states
     const [showEventModal, setShowEventModal] = useState(false);
     const [templateForEvent, setTemplateForEvent] = useState(null);
+    const [isCreatingTemplate, setIsCreatingTemplate] = useState(false); // Új sablon létrehozása mód
     
     // Filter states
     const [searchQuery, setSearchQuery] = useState('');
@@ -99,7 +100,10 @@ const TemplatesPage = ({ onLogout }) => {
     
     // User Templates lekérése
     useEffect(() => {
-        if (!db || !userFamilyId) return;
+        if (!db || !userFamilyId || !userId) {
+            setLoading(false);
+            return;
+        }
         
         setLoading(true);
         const templatesColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/userTemplates`);
@@ -113,12 +117,19 @@ const TemplatesPage = ({ onLogout }) => {
             setLoading(false);
         }, (error) => {
             console.error("TemplatesPage: Error loading user templates:", error);
-            setMessage("Hiba a sablonok betöltésekor.");
+            console.error("TemplatesPage: Error details:", {
+                code: error.code,
+                message: error.message,
+                userId,
+                userFamilyId,
+                path: `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/userTemplates`
+            });
+            setMessage("Hiba a sablonok betöltésekor. Ellenőrizd, hogy be vagy-e jelentkezve.");
             setLoading(false);
         });
         
         return () => unsubscribe();
-    }, [db, userFamilyId]);
+    }, [db, userFamilyId, userId]);
     
     // Kategóriák dinamikus generálása
     const categories = useMemo(() => {
@@ -225,16 +236,22 @@ const TemplatesPage = ({ onLogout }) => {
     // Sablon kiválasztása → EventModal megnyitása
     const handleTemplateSelect = (template) => {
         // EventModal-hoz átadandó adatok
+        // Ha van template.id, akkor sablon szerkesztésről van szó
         const eventData = {
+            id: template.id, // Sablon ID - ha van, akkor szerkesztés
             name: template.name,
             icon: template.icon || '',
             color: template.color || '',
             assignedTo: template.defaultAssignedTo || '',
+            time: '09:00', // Alapértelmezett kezdő idő
             endTime: template.defaultDuration ? calculateEndTime(template.defaultDuration) : '',
-            recurrenceType: 'none'
+            recurrenceType: 'none',
+            status: 'inactive', // Sablon esetén inaktív státusz
+            isTemplateEdit: true // Jelző, hogy sablon szerkesztésről van szó
         };
         
         setTemplateForEvent(eventData);
+        setIsCreatingTemplate(false); // Nem új sablon létrehozása
         setShowEventModal(true);
     };
     
@@ -251,12 +268,50 @@ const TemplatesPage = ({ onLogout }) => {
     
     // EventModal mentés - közvetlenül a Firestore-ba
     const handleEventSave = async (eventData) => {
-        if (!db || !userFamilyId) {
+        if (!db || !userFamilyId || !userId) {
             setMessage("Hiba: Az adatok mentése nem lehetséges.");
             return;
         }
 
         try {
+            // Ha sablon szerkesztésről vagy új sablon létrehozásáról van szó
+            if (isCreatingTemplate || eventData.isTemplateEdit) {
+                const templatesColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/userTemplates`);
+                
+                const templateData = {
+                    name: eventData.name,
+                    icon: eventData.icon || '',
+                    color: eventData.color || '', // Szín mentése
+                    category: '', // Felhasználó később beállíthatja
+                    defaultAssignedTo: eventData.assignedTo || '',
+                    defaultDuration: eventData.time && eventData.endTime ? calculateDuration(eventData.time, eventData.endTime) : null,
+                    ...(isCreatingTemplate ? {
+                        createdBy: userId,
+                        createdAt: new Date()
+                    } : {
+                        lastModified: new Date().toISOString(),
+                        lastModifiedBy: userId
+                    })
+                };
+                
+                if (eventData.isTemplateEdit && eventData.id) {
+                    // Sablon frissítése
+                    const templateDocRef = doc(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/userTemplates`, eventData.id);
+                    await updateDoc(templateDocRef, templateData);
+                    setMessage("Sablon sikeresen frissítve!");
+                } else {
+                    // Új sablon létrehozása
+                    await addDoc(templatesColRef, templateData);
+                    setMessage("Sablon sikeresen létrehozva!");
+                }
+                
+                setShowEventModal(false);
+                setTemplateForEvent(null);
+                setIsCreatingTemplate(false);
+                return;
+            }
+
+            // Különben eseményként mentjük
             const currentTimestamp = new Date().toISOString();
             const eventId = eventData.id;
             
@@ -293,12 +348,23 @@ const TemplatesPage = ({ onLogout }) => {
             
             setShowEventModal(false);
             setTemplateForEvent(null);
+            setIsCreatingTemplate(false);
             // Visszairányítás a naptárhoz
             navigate('/app');
         } catch (error) {
-            console.error("TemplatesPage: Error saving event:", error);
-            setMessage("Hiba az esemény mentésekor.");
+            console.error("TemplatesPage: Error saving:", error);
+            setMessage(isCreatingTemplate ? "Hiba a sablon mentésekor." : "Hiba az esemény mentésekor.");
         }
+    };
+
+    // Duration számítása time és endTime-ból (perc)
+    const calculateDuration = (startTime, endTime) => {
+        if (!startTime || !endTime) return null;
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
+        const startTotal = startHour * 60 + startMinute;
+        const endTotal = endHour * 60 + endMinute;
+        return endTotal - startTotal;
     };
     
     // Üzenet törlése
@@ -394,9 +460,30 @@ const TemplatesPage = ({ onLogout }) => {
                     <div className="space-y-8">
                         {/* Saját Sablonok szekció */}
                         <section>
-                            <h2 className="text-xl font-bold text-gray-900 mb-4">
-                                Saját Sablonok
-                            </h2>
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-xl font-bold text-gray-900">
+                                    Saját Sablonok
+                                </h2>
+                                {filteredUserTemplates.length > 0 && (
+                                    <button
+                                        onClick={() => {
+                                            setIsCreatingTemplate(true);
+                                            setTemplateForEvent({
+                                                name: '',
+                                                icon: '',
+                                                color: '',
+                                                recurrenceType: 'none',
+                                                status: 'inactive', // Új sablon esetén inaktív
+                                                isTemplateEdit: false // Új sablon létrehozása
+                                            });
+                                            setShowEventModal(true);
+                                        }}
+                                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                                    >
+                                        <i className="fas fa-plus mr-2"></i>Új sablon
+                                    </button>
+                                )}
+                            </div>
                             {filteredUserTemplates.length === 0 ? (
                                 <div className="bg-white p-8 rounded-lg shadow-sm text-center">
                                     <p className="text-gray-600 mb-4">
@@ -405,14 +492,31 @@ const TemplatesPage = ({ onLogout }) => {
                                             : "Nincs még aktivált sablonod. Válassz a Globális Katalógusból, vagy hozz létre egy újat!"}
                                     </p>
                                     {!searchQuery && !filterCategory && (
-                                        <button
-                                            onClick={() => {
-                                                document.getElementById('global-section')?.scrollIntoView({ behavior: 'smooth' });
-                                            }}
-                                            className="text-blue-600 hover:text-blue-800 font-medium"
-                                        >
-                                            Lépj a Globális Katalógusba →
-                                        </button>
+                                        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                                            <button
+                                                onClick={() => {
+                                                    setIsCreatingTemplate(true);
+                                                    setTemplateForEvent({
+                                                        name: '',
+                                                        icon: '',
+                                                        color: '',
+                                                        recurrenceType: 'none'
+                                                    });
+                                                    setShowEventModal(true);
+                                                }}
+                                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                                            >
+                                                <i className="fas fa-plus mr-2"></i>Új sablon létrehozása
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    document.getElementById('global-section')?.scrollIntoView({ behavior: 'smooth' });
+                                                }}
+                                                className="text-blue-600 hover:text-blue-800 font-medium"
+                                            >
+                                                Lépj a Globális Katalógusba →
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             ) : (
@@ -516,13 +620,21 @@ const TemplatesPage = ({ onLogout }) => {
             </div>
             
             {/* EventModal */}
-            {showEventModal && templateForEvent && (
+            {showEventModal && (
                 <EventModal
-                    event={templateForEvent}
+                    event={templateForEvent || {
+                        name: '',
+                        icon: '',
+                        color: '',
+                        recurrenceType: 'none',
+                        status: 'inactive', // Új sablon esetén inaktív
+                        isTemplateEdit: false
+                    }}
                     onSave={handleEventSave}
                     onClose={() => {
                         setShowEventModal(false);
                         setTemplateForEvent(null);
+                        setIsCreatingTemplate(false);
                     }}
                     familyMembers={familyMembers}
                     showTemporaryMessage={(msg) => setMessage(msg)}

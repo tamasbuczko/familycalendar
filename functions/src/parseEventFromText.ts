@@ -70,119 +70,44 @@ export const parseEventFromText = functions
       throw new functions.https.HttpsError('failed-precondition', 'Gemini API key not configured');
     }
 
-    // Prompt létrehozása az AI számára
-    
-    const prompt = `Egy családi naptár alkalmazás számára kell egy eseményt JSON formátumba alakítanom a következő magyar nyelvű szövegből: "${text}"
+    // Rövid prompt + JSON Schema (strukturált output)
+    // A Gemini API response_schema paraméterével garantáljuk a formátumot
+    const prompt = `Alakítsd át ezt a magyar nyelvű szöveget esemény adatokká: "${text}"
 
-Kérlek, alakítsd át ezt egy JSON objektummá, ami a következő struktúrát követi:
-{
-  "name": "esemény neve",
-  "date": "YYYY-MM-DD" vagy null ha ismétlődő,
-  "time": "HH:MM",
-  "endTime": "HH:MM" vagy null,
-  "location": "helyszín" vagy null,
-  "notes": "megjegyzések" vagy null,
-  "recurrenceType": "none" | "daily" | "weekly" | "monthly" vagy null,
-  "startDate": "YYYY-MM-DD" vagy null,
-  "endDate": "YYYY-MM-DD" vagy null,
-  "recurrenceDays": [0-6] vagy null, // 0=Vasárnap, 1=Hétfő, ..., 6=Szombat
-  "icon": "emoji" vagy null,
-  "color": "#hex" vagy null,
-  "status": "active"
-}
+KRITIKUS SZABÁLYOK:
+1. ISMÉTLŐDŐ vs EGYSZERI (NAGYON FONTOS!):
+   - Csak akkor legyen ismétlődő (recurrenceType = "weekly"/"daily"/"monthly"), ha VAN "minden", "minden héten", "minden nap", "naponta", "hétfőnként", "ismétlődő" vagy hasonló kifejezés
+   - Ha CSAK napnév van (pl. "pénteken", "hétfőn", "kedden") ÉS NINCS "minden" vagy "ismétlődő" → EGYSZERI esemény (recurrenceType = "none"), date = következő előfordulás
+   - Példa: "pénteken kettőkor" → EGYSZERI (recurrenceType = "none"), date = következő péntek
+   - Példa: "minden pénteken" → ISMÉTLŐDŐ (recurrenceType = "weekly"), recurrenceDays = [5], date = null
+   - Alapértelmezés szerint a recurrenceType = "none" és a recurrenceDays = null
 
-KRITIKUS SZABÁLYOK (FONTOS: OLVASD EL FIGYELMESEN!):
-1. EGYSZERI ESEMÉNYEK (ELSŐBBSÉG!):
-   - Ha "egyszeri esemény", "egyszer", "csak egyszer", "nem ismétlődő" vagy hasonló kifejezés van a szövegben:
-     * recurrenceType = "none" (MINDIG!)
-     * date = számítsd ki a dátumot:
-       - Ha napnév van (hétfő, kedd, szerda, csütörtök, péntek, szombat, vasárnap): a KÖVETKEZŐ előfordulás (nem az előző!)
-         * Példa: ha ma szerda van és "hétfő"-t mond, akkor a következő hétfő legyen (5 nap múlva), NEM az előző (2 napja volt)
-         * Ha ma hétfő van és "hétfő"-t mond, akkor ma vagy jövő hétfő (7 nap múlva)
-         * Mindig a jövőbeli napot használd, ha az már elmúlt ezen a héten
-       - Ha nincs napnév: mai dátum (${today})
-       - Ha konkrét dátum van (pl. "december 25", "jövő hét péntek"): a megadott dátum
-     * startDate = null
-     * endDate = null
-     * recurrenceDays = null
-     * FONTOS: Még akkor is "none", ha "hétfő", "kedd" stb. van benne, ha "egyszeri" is van!
-   
-   - Ha konkrét dátum van megadva (pl. "december 25", "jövő hét péntek", "2025-01-20"):
-     * recurrenceType = "none"
-     * date = a megadott dátum (YYYY-MM-DD formátumban)
-     * startDate = null
-     * endDate = null
-     * recurrenceDays = null
-   
-   - Ha napnév van (hétfő, kedd, stb.) ÉS nincs "egyszeri" kifejezés ÉS nincs "minden hétfő", "minden héten":
-     * recurrenceType = "none" (egyszeri esemény, mert nincs "minden" vagy "ismétlődő")
-     * date = a KÖVETKEZŐ előfordulás (nem az előző!)
-     * startDate = null
-     * endDate = null
-     * recurrenceDays = null
-   
-   - Ha nincs dátum megadva ÉS nincs napnév (hétfő, kedd, stb.) ÉS nincs "minden nap", "naponta", "havi":
-     * recurrenceType = "none"
-     * date = mai dátum (${today})
-     * startDate = null
-     * endDate = null
-     * recurrenceDays = null
+2. DÁTUM SZÁMÍTÁS:
+   - Ha napnév van (hétfő, kedd...) és egyszeri: date = KÖVETKEZŐ előfordulás (nem az előző!)
+   - Ha nincs napnév: date = mai dátum (${today})
+   - Mai dátum: ${today}
 
-2. ISMÉTLŐDŐ ESEMÉNYEK (csak akkor, ha NINCS "egyszeri" kifejezés ÉS van "minden", "minden héten", "ismétlődő"):
-   - Ha "minden hétfő", "minden héten hétfő", "hétfőnként", "ismétlődő hétfő" vagy hasonló van:
-     * recurrenceType = "weekly"
-     * recurrenceDays = [nap száma] (1=hétfő, 2=kedd, 3=szerda, 4=csütörtök, 5=péntek, 6=szombat, 0=vasárnap)
-     * date = null (NEM dátum, mert ismétlődő!)
-     * startDate = mai dátum (${today})
-     * endDate = null (végtelen ismétlődés)
-   
-   - Ha "minden nap" vagy "naponta" van:
-     * recurrenceType = "daily"
-     * date = null
-     * startDate = mai dátum (${today})
-     * endDate = null
-   
-   - Ha "havi" vagy "minden hónapban" van:
-     * recurrenceType = "monthly"
-     * date = null
-     * startDate = mai dátum (${today})
-     * endDate = null
+3. LÁTHATÓSÁG:
+   - "csak én láthassam" → visibility = "only_me"
+   - Egyébként: visibility = "family"
 
-3. HELYSZÍN KINYERÉSE (NAGYON FONTOS!):
-   - "anyámnál" -> location: "Anyám háza"
-   - "apámnál" -> location: "Apám háza"
-   - "nagymamánál" -> location: "Nagymama háza"
-   - "iskolában" -> location: "Iskola"
-   - "boltban" -> location: "Bolt"
-   - Ha van helyszín a szövegben, MINDIG töltsd ki a location mezőt!
+4. HOZZÁRENDELÉS:
+   - "nekem" vagy "én" → assignedTo = "én"
+   - Családtag név (Péternek, Mariának) → assignedTo = név
+   - Egyébként: assignedTo = null
 
-4. ESEMÉNY NEVE:
-   - Legyen rövid, egyértelmű és leíró
-   - Ha van helyszín, lehet benne (pl. "Vacsora anyámnál")
-   - Ne csak "Vacsora", hanem "Vacsora anyámnál" vagy hasonló
+5. HELYSZÍN:
+   - "anyámnál" → location = "Anyám háza"
+   - "apámnál" → location = "Apám háza"
+   - Helyszín kinyerése a szövegből (pl. "budapestre" → location = "Budapest")
 
-5. IDŐ:
-   - Ha idő nincs megadva, használd "08:00"-t
-   - "este 8" vagy "este 8kor" = "20:00"
-   - "reggel 8" vagy "8 óra" = "08:00"
-   - "délután 3" = "15:00"
+6. IDŐ:
+   - "kettőkor" = "14:00"
+   - "este 8" = "20:00"
+   - "reggel 8" = "08:00"
+   - Alapértelmezett: "08:00"
 
-6. MÁI DÁTUM: ${today}
-
-PÉLDÁK (MÁI DÁTUM: ${today}, MAI NAP: ${new Date().toLocaleDateString('hu-HU', { weekday: 'long' })}):
-- "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8kor" (ha ma szerda van)
-  -> {name: "Vacsora anyámnál", date: "KÖVETKEZŐ_HÉTFŐ_DÁTUMA", time: "20:00", location: "Anyám háza", recurrenceType: "none", startDate: null, endDate: null, recurrenceDays: null}
-
-- "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8:00-kor egyszeri esemény legyen" (ha ma szerda van)
-  -> {name: "Vacsora anyámnál", date: "KÖVETKEZŐ_HÉTFŐ_DÁTUMA", time: "20:00", location: "Anyám háza", recurrenceType: "none", startDate: null, endDate: null, recurrenceDays: null}
-
-- "minden hétfő vacsora" (ismétlődő)
-  -> {name: "Vacsora", date: null, time: "18:00", location: null, recurrenceType: "weekly", recurrenceDays: [1], startDate: "${today}", endDate: null}
-
-- "futás reggel 7kor"
-  -> {name: "Futás", date: "${today}", time: "07:00", location: null, recurrenceType: "none"}
-
-Csak a JSON objektumot add vissza, semmi mást. Ha valami nem egyértelmű, használj ésszerű alapértelmezett értékeket.`;
+A JSON Schema szerint add vissza az adatokat.`;
 
     // LOG: Prompt létrehozva
     console.log('=== PROMPT CREATED ===');
@@ -191,12 +116,16 @@ Csak a JSON objektumot add vissza, semmi mást. Ha valami nem egyértelmű, hasz
     console.log('Prompt (full):', prompt);
 
     // Google Gemini API használata - REST API közvetlenül
-    // v1 végpontot használunk (nem v1beta), mert az támogatja az új modelleket
+    // v1 végpontot használunk (nem v1beta) - támogatja az új modelleket
     // Több modellt próbálunk, ha egy túlterhelt
+    // Végleges lista alapján (lásd: GEMINI_MODELS_ACTUAL.md) - csak biztosan létező modellek
     const models = [
-      'gemini-2.5-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro'
+      'gemini-2.5-flash',        // ✅ Létezik - Legújabb, gyors, stabil
+      'gemini-2.0-flash',        // ✅ Létezik - Régebbi, de stabil fallback
+      'gemini-2.0-flash-001',    // ✅ Létezik - Alternatív Flash verzió
+      'gemini-2.5-pro',          // ✅ Létezik - Erősebb, de lassabb
+      'gemini-flash-latest',     // ✅ Létezik - Latest Flash verzió
+      'gemini-pro-latest'        // ✅ Létezik - Latest Pro verzió
     ];
     
     let content: string | null = null;
@@ -210,8 +139,8 @@ Csak a JSON objektumot add vissza, semmi mást. Ha valami nem egyértelmű, hasz
     // Próbáljuk meg minden modellt
     modelLoop: for (let modelIndex = 0; modelIndex < models.length; modelIndex++) {
       const model = models[modelIndex];
-      // v1 végpont használata (nem v1beta) - támogatja az új modelleket
-      const geminiApiUrl = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${geminiApiKey}`;
+      // v1beta végpont használata - támogatja a generationConfig és responseSchema-t
+      const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiApiKey}`;
       
       console.log(`=== Trying model: ${model} (${modelIndex + 1}/${models.length}) ===`);
       
@@ -231,12 +160,56 @@ Csak a JSON objektumot add vissza, semmi mást. Ha valami nem egyértelmű, hasz
           // Próbálkozás rögzítése
           attempts.push({ model, attempt: attempt + 1, success: false });
           
+          // JSON Schema a strukturált output-hoz (Gemini API response_schema)
+          // Megjegyzés: A Gemini API nem támogatja a union típusokat (type: ['string', 'null'])
+          // Ezért csak egy típust használunk, és a null értékeket a kódban kezeljük
+          const responseSchema = {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Esemény neve' },
+              date: { type: 'string', description: 'Egyszeri esemény dátuma (YYYY-MM-DD) vagy üres string ha ismétlődő' },
+              time: { type: 'string', description: 'Kezdő idő (HH:MM)' },
+              endTime: { type: 'string', description: 'Befejező idő (HH:MM) vagy üres string' },
+              location: { type: 'string', description: 'Helyszín vagy üres string' },
+              notes: { type: 'string', description: 'Megjegyzések vagy üres string' },
+              recurrenceType: { 
+                type: 'string', 
+                enum: ['none', 'daily', 'weekly', 'monthly'],
+                description: 'Ismétlődési típus: "none" (egyszeri), "daily", "weekly", "monthly"'
+              },
+              startDate: { type: 'string', description: 'Ismétlődő esemény kezdő dátuma (YYYY-MM-DD) vagy üres string' },
+              endDate: { type: 'string', description: 'Ismétlődő esemény befejező dátuma (YYYY-MM-DD) vagy üres string' },
+              recurrenceDays: { 
+                type: 'array',
+                items: { type: 'integer', minimum: 0, maximum: 6 },
+                description: 'Hét napjai (0=Vasárnap, 1=Hétfő, ..., 6=Szombat) vagy üres tömb ha nincs ismétlődés'
+              },
+              icon: { type: 'string', description: 'Emoji ikon vagy üres string' },
+              color: { type: 'string', description: 'Szín hex kód vagy üres string' },
+              status: { type: 'string', enum: ['active', 'cancelled', 'inactive'], default: 'active', description: 'Esemény státusza' },
+              visibility: { 
+                type: 'string', 
+                enum: ['only_me', 'family', 'known_families'],
+                default: 'family',
+                description: 'Láthatóság: "only_me" (csak én), "family" (család), "known_families"'
+              },
+              assignedTo: { type: 'string', description: 'Hozzárendelt családtag neve vagy "én" vagy üres string' },
+              showAvatar: { type: 'boolean', default: true, description: 'Avatar megjelenítése' },
+              points: { type: 'integer', default: 10, minimum: 0, description: 'Pontok az esemény teljesítéséért' }
+            },
+            required: ['name', 'time', 'status', 'visibility']
+          };
+          
           const requestBody = {
             contents: [{
               parts: [{
                 text: prompt
               }]
-            }]
+            }],
+            generationConfig: {
+              responseSchema: responseSchema,
+              responseMimeType: 'application/json'
+            }
           };
           
           // LOG: Request body teljes
@@ -276,23 +249,34 @@ Csak a JSON objektumot add vissza, semmi mást. Ha valami nem egyértelmű, hasz
             throw error;
           }
 
-          // Válasz kinyerése (ugyanaz, mint a test-gemini-api.html-ben)
-          content = responseData.candidates?.[0]?.content?.parts?.[0]?.text || null;
+          // Válasz kinyerése - strukturált output esetén közvetlenül JSON string
+          // A Gemini API responseSchema esetén közvetlenül JSON string-et ad vissza
+          let jsonContent: string | null = null;
+          
+          // Próbáljuk meg a különböző válasz formátumokat
+          if (responseData.candidates?.[0]?.content?.parts?.[0]?.text) {
+            jsonContent = responseData.candidates[0].content.parts[0].text;
+          } else if (responseData.text) {
+            jsonContent = responseData.text;
+          }
           
           // LOG: Extracted content teljes
           console.log('=== EXTRACTED CONTENT ===');
-          console.log('Content exists:', !!content);
-          console.log('Content length:', content?.length || 0);
-          console.log('Content (full):', content);
+          console.log('Content exists:', !!jsonContent);
+          console.log('Content length:', jsonContent?.length || 0);
+          console.log('Content (full):', jsonContent);
           
           // Ellenőrizzük, hogy a válasz nem üres
-          if (content && content.trim().length > 0) {
-            console.log(`✅ Success with model: ${model}`);
+          if (jsonContent && jsonContent.trim().length > 0) {
+            // Strukturált output esetén már JSON string formátumban jön
+            content = jsonContent;
+            console.log(`✅ Success with model: ${model} (structured output)`);
             // Sikeres próbálkozás frissítése
             attempts[attempts.length - 1].success = true;
             break modelLoop; // Sikeres, kilépünk mindkét loop-ból
           } else {
             console.warn(`Empty response from Gemini API - Model: ${model} (attempt ${attempt + 1}/${maxRetriesPerModel}), response:`, JSON.stringify(responseData, null, 2));
+            attempts[attempts.length - 1].error = 'Empty response';
             if (attempt < maxRetriesPerModel - 1) {
               continue; // Próbáljuk újra, ha még van lehetőség
             }
@@ -394,31 +378,33 @@ Csak a JSON objektumot add vissza, semmi mást. Ha valami nem egyértelmű, hasz
       throw new functions.https.HttpsError('unavailable', `Gemini API nem elérhető. Próbáltuk ${models.length} modellt, összesen ${models.length * maxRetriesPerModel} alkalommal. Kérlek próbáld újra később.`, errorDetails);
     }
 
-    // LOG: JSON kinyerés előtt
-    console.log('=== JSON EXTRACTION ===');
-    console.log('Content before JSON extraction:', content);
-    
-    // JSON kinyerése a válaszból
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    
-    // LOG: JSON match eredmény
-    console.log('JSON match found:', !!jsonMatch);
-    if (jsonMatch) {
-      console.log('JSON match (full):', jsonMatch[0]);
-      console.log('JSON match length:', jsonMatch[0].length);
-    } else {
-      console.error('No JSON match found in content!');
-    }
-    
-    if (!jsonMatch) {
-      throw new functions.https.HttpsError('internal', 'Could not parse JSON from AI response');
-    }
-
     // LOG: JSON parse előtt
     console.log('=== JSON PARSE ===');
-    console.log('JSON string to parse:', jsonMatch[0]);
+    console.log('Content before JSON parse:', content);
     
-    const eventJson = JSON.parse(jsonMatch[0]);
+    // JSON parse - strukturált output esetén már JSON string, egyébként kinyerjük
+    let eventJson: any;
+    
+    try {
+      // Először próbáljuk meg közvetlenül parse-olni (strukturált output esetén)
+      eventJson = JSON.parse(content);
+      console.log('✅ Direct JSON parse successful (structured output)');
+    } catch (parseError) {
+      // Ha nem sikerült, akkor kinyerjük a JSON-t a szövegből (visszafelé kompatibilitás)
+      console.log('⚠️ Direct parse failed, extracting JSON from text...');
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      
+      // LOG: JSON match eredmény
+      console.log('JSON match found:', !!jsonMatch);
+      if (jsonMatch) {
+        console.log('JSON match (full):', jsonMatch[0]);
+        console.log('JSON match length:', jsonMatch[0].length);
+        eventJson = JSON.parse(jsonMatch[0]);
+      } else {
+        console.error('No JSON match found in content!');
+        throw new functions.https.HttpsError('internal', 'Could not parse JSON from AI response');
+      }
+    }
     
     // LOG: JSON parse után
     console.log('=== PARSED JSON ===');
@@ -437,22 +423,25 @@ Csak a JSON objektumot add vissza, semmi mást. Ha valami nem egyértelmű, hasz
     console.log('Event JSON before validation:', JSON.stringify(eventJson, null, 2));
     
     // Validáció és alapértelmezett értékek
+    // Az üres stringeket és üres tömböket null-ra konvertáljuk (mert a JSON Schema nem támogatja a union típusokat)
     const validatedEvent = {
       name: eventJson.name || 'Esemény',
-      date: eventJson.date || new Date().toISOString().split('T')[0],
+      date: (eventJson.date && eventJson.date.trim()) || new Date().toISOString().split('T')[0],
       time: eventJson.time || '08:00',
-      endTime: eventJson.endTime || null,
-      location: eventJson.location || null,
-      notes: eventJson.notes || null,
+      endTime: (eventJson.endTime && eventJson.endTime.trim()) || null,
+      location: (eventJson.location && eventJson.location.trim()) || null,
+      notes: (eventJson.notes && eventJson.notes.trim()) || null,
       recurrenceType: eventJson.recurrenceType || 'none',
-      startDate: eventJson.startDate || null,
-      endDate: eventJson.endDate || null,
-      recurrenceDays: eventJson.recurrenceDays || null,
-      icon: eventJson.icon || null,
-      color: eventJson.color || null,
+      startDate: (eventJson.startDate && eventJson.startDate.trim()) || null,
+      endDate: (eventJson.endDate && eventJson.endDate.trim()) || null,
+      recurrenceDays: (eventJson.recurrenceDays && Array.isArray(eventJson.recurrenceDays) && eventJson.recurrenceDays.length > 0) ? eventJson.recurrenceDays : null,
+      icon: (eventJson.icon && eventJson.icon.trim()) || null,
+      color: (eventJson.color && eventJson.color.trim()) || null,
       status: eventJson.status || 'active',
-      visibility: 'family',
-      points: 10
+      visibility: eventJson.visibility || 'family', // 'only_me', 'family', 'known_families'
+      assignedTo: eventJson.assignedTo || null, // Családtag neve vagy "én" - a frontend majd kezeli
+      points: eventJson.points || 10, // Pontok (alapértelmezett: 10)
+      showAvatar: eventJson.showAvatar !== undefined ? eventJson.showAvatar : true // Avatar megjelenítése (alapértelmezett: true)
     };
 
     // Ha heti ismétlődés van, de nincs recurrenceDays, akkor a mai napot használjuk

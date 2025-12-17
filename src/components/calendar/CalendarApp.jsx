@@ -9,7 +9,6 @@ import CalendarControls from './CalendarControls.jsx';
 import ModalsContainer from './ModalsContainer.jsx';
 import MessageDisplay from './MessageDisplay.jsx';
 import WeatherWidget from './WeatherWidget.jsx';
-import VoiceEventInput from '../ui/VoiceEventInput.jsx';
 
 // Import the new hooks
 import { useCalendarState } from './CalendarStateManager.jsx';
@@ -221,26 +220,6 @@ const CalendarApp = ({ onLogout }) => {
                             isChildMode={isChildMode}
                         />
                     </div>
-
-                    {/* Hangalapú eseményfelvétel doboz */}
-                    {!isChildMode && (
-                        <div className="bg-white p-6 rounded-lg shadow-md w-full lg:w-96">
-                            <h2 className="text-xl font-semibold text-gray-700 mb-4">
-                                <i className="fas fa-microphone mr-2 text-blue-600"></i>
-                                Hangalapú eseményfelvétel
-                            </h2>
-                            <VoiceEventInput
-                                familyId={userFamilyId}
-                                onEventCreated={(eventId, event) => {
-                                    // Esemény sikeresen létrehozva - a state automatikusan frissül a Firestore listener miatt
-                                    state.showTemporaryMessage(`Esemény sikeresen létrehozva: ${event?.name || 'Esemény'}`);
-                                }}
-                                onError={(error) => {
-                                    state.showTemporaryMessage(`Hiba: ${error}`);
-                                }}
-                            />
-                        </div>
-                    )}
                 </div>
 
                 <CalendarControls
@@ -260,6 +239,13 @@ const CalendarApp = ({ onLogout }) => {
                     currentUserMember={state.currentUserMember}
                     isChildMode={isChildMode}
                     colorPriority={state.colorPriority}
+                    familyId={userFamilyId}
+                    onEventCreated={(eventId, event) => {
+                        state.showTemporaryMessage(`Esemény sikeresen létrehozva: ${event?.name || 'Esemény'}`);
+                    }}
+                    onError={(error) => {
+                        state.showTemporaryMessage(`Hiba: ${error}`);
+                    }}
                 />
 
                 {/* Időjárás widget */}

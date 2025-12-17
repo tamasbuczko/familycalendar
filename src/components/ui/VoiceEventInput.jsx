@@ -3,20 +3,20 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../firebaseConfig.js';
 
 /**
- * Hangalapú eseményfelvétel komponens
+ * AI-alapú eseményfelvétel komponens
  * 
  * Folyamat:
- * 1. Felhasználó rákattint a mikrofon gombra
- * 2. Beszél (pl. "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8kor")
- * 3. Web Speech API szöveggé alakítja
- * 4. AI feldolgozza és JSON-t ad vissza
- * 5. Esemény létrehozása a naptárban
+ * 1. Felhasználó beírja vagy beszéli a szöveget (mikrofon gombbal)
+ * 2. AI feldolgozza a természetes nyelvű szöveget (pl. "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8kor")
+ * 3. AI JSON formátumba alakítja az esemény adatait
+ * 4. Esemény automatikus létrehozása a naptárban
  */
-const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
+const VoiceEventInput = ({ familyId, familyMembers, userId, currentUserMember, onEventCreated, onError }) => {
     const [isListening, setIsListening] = useState(false);
     const [transcript, setTranscript] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const recognitionRef = useRef(null);
+    const transcriptRef = useRef('');
 
     // Web Speech API inicializálása
     useEffect(() => {
@@ -32,33 +32,43 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
         recognition.interimResults = true;
         recognition.lang = 'hu-HU'; // Magyar nyelv
 
+        // Tároljuk a felismert szöveget a felvétel alatt
+        let recognizedText = '';
+
         recognition.onstart = () => {
             setIsListening(true);
-            // Ne töröljük a meglévő szöveget, csak jelöljük, hogy hallgatunk
+            // Megtartjuk a meglévő szöveget, csak "Hallgatás..."-t jelenítjük meg
+            const currentText = transcriptRef.current === 'Hallgatás...' ? '' : transcriptRef.current;
+            recognizedText = ''; // Új felvétel, töröljük az előző felismert szöveget
+            setTranscript('Hallgatás...');
         };
 
         recognition.onresult = (event) => {
-            let newText = '';
-
+            // Összegyűjtjük az összes végleges eredményt (nem jelenítjük meg valós időben)
+            let finalText = '';
+            
             for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    newText += transcript + ' ';
+                    // Csak a végleges eredményeket tároljuk
+                    finalText += event.results[i][0].transcript + ' ';
                 }
             }
 
-            // Hozzáfűzzük az új szöveget a meglévőhöz
-            if (newText.trim()) {
-                setTranscript(prev => {
-                    const trimmed = prev.trim();
-                    return trimmed ? `${trimmed} ${newText.trim()}` : newText.trim();
-                });
+            // Hozzáfűzzük a felismert szöveghez (de még nem jelenítjük meg)
+            if (finalText.trim()) {
+                recognizedText += finalText;
             }
         };
 
         recognition.onerror = (event) => {
             console.error('Speech recognition error:', event.error);
             setIsListening(false);
+            recognizedText = ''; // Töröljük a felismert szöveget hiba esetén
+            // Ha még mindig "Hallgatás..." van a mezőben, akkor töröljük
+            if (transcriptRef.current === 'Hallgatás...') {
+                setTranscript('');
+                transcriptRef.current = '';
+            }
             if (onError) {
                 onError(`Hangfelismerési hiba: ${event.error}`);
             }
@@ -66,7 +76,20 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
 
         recognition.onend = () => {
             setIsListening(false);
-            // Ne dolgozzuk fel automatikusan, csak jelenítsük meg a szöveget
+            
+            // A felvétel vége: ha van felismert szöveg, hozzáfűzzük a meglévőhöz
+            if (recognizedText.trim()) {
+                const currentText = transcriptRef.current === 'Hallgatás...' ? '' : transcriptRef.current;
+                const newText = currentText ? (currentText + ' ' + recognizedText.trim()) : recognizedText.trim();
+                setTranscript(newText);
+                transcriptRef.current = newText;
+            } else {
+                // Ha nincs felismert szöveg, akkor töröljük a "Hallgatás..."-t
+                if (transcriptRef.current === 'Hallgatás...') {
+                    setTranscript('');
+                    transcriptRef.current = '';
+                }
+            }
         };
 
         recognitionRef.current = recognition;
@@ -87,7 +110,7 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
         setIsProcessing(true);
 
         try {
-            console.log('🎤 VoiceEventInput: Starting text processing...');
+            console.log('🤖 AI Event Input: Starting text processing...');
             console.log('📝 Input text:', text);
             console.log('👤 Family ID:', familyId);
             console.log('⏳ Calling parseEventFromText function...');
@@ -134,10 +157,44 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
                 throw new Error('Nem sikerült feldolgozni a szöveget');
             }
 
-            const validatedEvent = parseResult.data.event;
+            let validatedEvent = parseResult.data.event;
             
             // Debug: logoljuk az esemény adatait
             console.log('Parsed event data:', validatedEvent);
+
+            // assignedTo konverzió: név -> ID
+            if (validatedEvent.assignedTo) {
+                if (validatedEvent.assignedTo === 'én' || validatedEvent.assignedTo.toLowerCase() === 'én' || validatedEvent.assignedTo.toLowerCase() === 'nekem') {
+                    // Ha "én" vagy "nekem", akkor a jelenlegi felhasználó ID-ját használjuk
+                    if (currentUserMember && currentUserMember.id) {
+                        validatedEvent.assignedTo = currentUserMember.id;
+                    } else if (userId) {
+                        validatedEvent.assignedTo = `user_${userId}`;
+                    } else {
+                        validatedEvent.assignedTo = null;
+                    }
+                } else if (familyMembers && familyMembers.length > 0) {
+                    // Keresés név alapján (case-insensitive)
+                    const memberName = validatedEvent.assignedTo.toLowerCase().trim();
+                    const foundMember = familyMembers.find(m => {
+                        const memberNameLower = (m.name || '').toLowerCase().trim();
+                        // Pontos egyezés vagy részleges egyezés (pl. "Péter" -> "Péternek")
+                        return memberNameLower === memberName || 
+                               memberNameLower.includes(memberName) || 
+                               memberName.includes(memberNameLower);
+                    });
+                    
+                    if (foundMember) {
+                        validatedEvent.assignedTo = foundMember.id;
+                    } else {
+                        // Ha nem találjuk, akkor null-ra állítjuk
+                        console.warn('Member not found for assignedTo:', validatedEvent.assignedTo);
+                        validatedEvent.assignedTo = null;
+                    }
+                } else {
+                    validatedEvent.assignedTo = null;
+                }
+            }
 
             // Esemény létrehozása
             const createEvent = httpsCallable(functions, 'createEvent');
@@ -153,6 +210,7 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
                     onEventCreated(createResult.data.eventId, validatedEvent);
                 }
                 setTranscript('');
+                transcriptRef.current = '';
             } else {
                 throw new Error('Esemény létrehozása sikertelen');
             }
@@ -181,7 +239,7 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
             }
         } finally {
             setIsProcessing(false);
-            console.log('🏁 VoiceEventInput: Processing finished');
+            console.log('🏁 AI Event Input: Processing finished');
         }
     };
 
@@ -212,78 +270,86 @@ const VoiceEventInput = ({ familyId, onEventCreated, onError }) => {
 
     // Szöveg mező változása
     const handleTextChange = (e) => {
-        setTranscript(e.target.value);
+        const newValue = e.target.value;
+        setTranscript(newValue);
+        transcriptRef.current = newValue;
     };
 
     // Szöveg mező törlése
     const handleClearText = () => {
         setTranscript('');
+        transcriptRef.current = '';
     };
+
 
     return (
         <div className="voice-event-input space-y-3">
-            {/* Gombok sor */}
-            <div className="flex items-center gap-2">
-                {/* Mikrofon gomb */}
+            {/* Vízszintes elrendezés: Mikrofon | Szövegmező | Felvétel */}
+            <div className="flex items-start gap-3">
+                {/* Mikrofon gomb - bal oldal */}
                 <button
                     type="button"
                     onClick={toggleListening}
                     disabled={isProcessing}
-                    className={`flex items-center justify-center w-10 h-10 rounded-full transition-all duration-300 flex-shrink-0 ${
+                    className={`flex items-center justify-center w-14 h-14 rounded-full transition-all duration-300 flex-shrink-0 ${
                         isListening
                             ? 'bg-red-500 hover:bg-red-600 animate-pulse'
                             : 'bg-blue-500 hover:bg-blue-600'
                     } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
                     title={isListening ? 'Hangfelvétel leállítása' : 'Hangalapú eseményfelvétel'}
                 >
-                    <i className={`fas ${isListening ? 'fa-stop' : 'fa-microphone'} text-white text-sm`}></i>
+                    <i className={`fas ${isListening ? 'fa-stop' : 'fa-microphone'} text-white text-lg`}></i>
                 </button>
 
-                {/* Felvétel gomb (ha van szöveg) */}
-                {transcript.trim() && !isListening && !isProcessing && (
-                    <button
-                        type="button"
-                        onClick={handleManualSubmit}
-                        className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
-                    >
-                        <i className="fas fa-check text-xs"></i>
-                        <span>Felvétel</span>
-                    </button>
-                )}
-            </div>
+                {/* Szöveg textarea mező - középen */}
+                <div className="relative flex-1">
+                    <textarea
+                        value={transcript}
+                        onChange={handleTextChange}
+                        placeholder={!isListening ? 'Írj be szöveget vagy használd a mikrofont...' : ''}
+                        disabled={isProcessing || isListening}
+                        rows={3}
+                        className="w-full px-3 py-2 pr-10 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed resize-y min-h-[80px]"
+                    />
+                    {/* Törlés gomb (X) - jobb felső sarokban */}
+                    {transcript && !isProcessing && (
+                        <button
+                            type="button"
+                            onClick={handleClearText}
+                            className="absolute right-2 top-2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                            title="Szöveg törlése"
+                        >
+                            <i className="fas fa-times text-xs"></i>
+                        </button>
+                    )}
+                    {/* Feldolgozás indikátor */}
+                    {isProcessing && (
+                        <div className="absolute right-2 top-2 w-6 h-6 flex items-center justify-center text-blue-600">
+                            <i className="fas fa-spinner fa-spin text-sm"></i>
+                        </div>
+                    )}
+                </div>
 
-            {/* Szöveg textarea mező */}
-            <div className="relative">
-                <textarea
-                    value={transcript}
-                    onChange={handleTextChange}
-                    placeholder={isListening ? 'Hallgatás...' : 'Írj be szöveget vagy használd a mikrofont...'}
-                    disabled={isProcessing}
-                    rows={3}
-                    className="w-full px-3 py-2 pr-10 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed resize-y min-h-[80px]"
-                />
-                {/* Törlés gomb (X) - jobb felső sarokban */}
-                {transcript && !isProcessing && (
-                    <button
-                        type="button"
-                        onClick={handleClearText}
-                        className="absolute right-2 top-2 w-6 h-6 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                        title="Szöveg törlése"
-                    >
-                        <i className="fas fa-times text-xs"></i>
-                    </button>
-                )}
-                {/* Feldolgozás indikátor */}
-                {isProcessing && (
-                    <div className="absolute right-2 top-2 w-6 h-6 flex items-center justify-center text-blue-600">
-                        <i className="fas fa-spinner fa-spin text-sm"></i>
-                    </div>
-                )}
+                {/* Felvétel gomb - jobb oldal - mindig látható */}
+                <button
+                    type="button"
+                    onClick={handleManualSubmit}
+                    disabled={transcript.trim().length < 20 || isProcessing || isListening}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 flex-shrink-0 h-10 ${
+                        transcript.trim().length >= 20 && !isProcessing && !isListening
+                            ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                    title={transcript.trim().length < 20 ? 'Legalább 20 karakter szükséges' : 'Esemény felvétele'}
+                >
+                    <i className="fas fa-check"></i>
+                    <span>Esemény felvétele</span>
+                </button>
             </div>
 
             {/* Segítség szöveg */}
             <div className="text-xs text-gray-500">
-                <p>Példa: "vegyél fel egy eseményt anyámnál vacsorával hétfő este 8kor"</p>
+                <p>Példa: "Vegyél fel egy eseményt a szüleim házához, családi vacsora címmel, péntek este 8-ra"</p>
             </div>
         </div>
     );

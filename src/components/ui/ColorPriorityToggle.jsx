@@ -28,16 +28,16 @@ const ColorPriorityToggle = ({ onChange }) => {
         <button
             onClick={togglePriority}
             className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-200 bg-gray-100 hover:bg-gray-200 text-gray-700"
-            title={priority === 'tag' ? 'Színek: Családtag (kattints az Eseménytípusra váltáshoz)' : 'Színek: Eseménytípus (kattints a Családtagra váltáshoz)'}
+            title="Események színe: családtag színe vagy esemény színe"
         >
             {priority === 'tag' ? (
                 <>
-                    <span className="text-base">👤</span>
+                    <span className="text-base">🌈</span>
                     <span className="hidden sm:inline">Tag</span>
                 </>
             ) : (
                 <>
-                    <span className="text-base">🎨</span>
+                    <span className="text-base">🌈</span>
                     <span className="hidden sm:inline">Esemény</span>
                 </>
             )}

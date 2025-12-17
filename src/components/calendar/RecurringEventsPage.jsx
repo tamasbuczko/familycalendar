@@ -13,6 +13,7 @@ const RecurringEventsPage = ({ onLogout }) => {
     const navigate = useNavigate();
     
     const [recurringEvents, setRecurringEvents] = useState([]);
+    const [allEvents, setAllEvents] = useState([]); // Minden esemény (ismétlődő + egyszeri)
     const [familyMembers, setFamilyMembers] = useState([]);
     const [familyData, setFamilyData] = useState(null);
     const [userDisplayName, setUserDisplayName] = useState('');
@@ -30,6 +31,7 @@ const RecurringEventsPage = ({ onLogout }) => {
     const [filterMemberId, setFilterMemberId] = useState('');
     const [filterRecurrenceType, setFilterRecurrenceType] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [eventTypeFilter, setEventTypeFilter] = useState('all'); // 'all', 'recurring', 'single'
     
     // Sort state
     const [sortBy, setSortBy] = useState('name'); // 'name', 'time', 'member'
@@ -102,26 +104,31 @@ const RecurringEventsPage = ({ onLogout }) => {
         return () => unsubscribe();
     }, [db, userId]);
     
-    // Ismétlődő események lekérése
+    // Minden esemény lekérése (ismétlődő + egyszeri)
     useEffect(() => {
         if (!db || !userFamilyId) return;
         
         setLoading(true);
         const eventsColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/events`);
         
-        // Csak azokat az eseményeket kérjük le, amelyek ismétlődőek (recurrenceType !== 'none')
-        const q = query(eventsColRef, where('recurrenceType', '!=', 'none'));
-        
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        // Minden eseményt lekérünk (nem csak az ismétlődőket)
+        const unsubscribe = onSnapshot(eventsColRef, (snapshot) => {
             const fetchedEvents = snapshot.docs.map(doc => {
                 const data = doc.data();
                 return { id: doc.id, ...data };
             });
-            setRecurringEvents(fetchedEvents);
+            setAllEvents(fetchedEvents);
+            
+            // Ismétlődő események külön (visszafelé kompatibilitás)
+            const recurring = fetchedEvents.filter(event => 
+                event.recurrenceType && event.recurrenceType !== 'none'
+            );
+            setRecurringEvents(recurring);
+            
             setLoading(false);
         }, (error) => {
-            console.error("RecurringEventsPage: Error loading recurring events:", error);
-            setMessage("Hiba az ismétlődő események betöltésekor.");
+            console.error("RecurringEventsPage: Error loading events:", error);
+            setMessage("Hiba az események betöltésekor.");
             setLoading(false);
         });
         
@@ -130,7 +137,22 @@ const RecurringEventsPage = ({ onLogout }) => {
     
     // Szűrt és rendezett események
     const filteredAndSortedEvents = React.useMemo(() => {
-        let filtered = [...recurringEvents];
+        // Először az esemény típus szerint szűrünk
+        let filtered = [];
+        if (eventTypeFilter === 'recurring') {
+            // Csak ismétlődő események
+            filtered = allEvents.filter(event => 
+                event.recurrenceType && event.recurrenceType !== 'none'
+            );
+        } else if (eventTypeFilter === 'single') {
+            // Csak egyszeri események
+            filtered = allEvents.filter(event => 
+                !event.recurrenceType || event.recurrenceType === 'none'
+            );
+        } else {
+            // Minden esemény
+            filtered = [...allEvents];
+        }
         
         // Keresés esemény nevében és leírásban
         if (searchQuery.trim()) {
@@ -147,7 +169,7 @@ const RecurringEventsPage = ({ onLogout }) => {
             filtered = filtered.filter(event => event.assignedTo === filterMemberId);
         }
         
-        // Szűrés ismétlődési típus szerint
+        // Szűrés ismétlődési típus szerint (csak ismétlődő eseményeknél)
         if (filterRecurrenceType) {
             filtered = filtered.filter(event => event.recurrenceType === filterRecurrenceType);
         }
@@ -171,7 +193,7 @@ const RecurringEventsPage = ({ onLogout }) => {
         });
         
         return filtered;
-    }, [recurringEvents, searchQuery, filterMemberId, filterRecurrenceType, sortBy, familyMembers]);
+    }, [allEvents, eventTypeFilter, searchQuery, filterMemberId, filterRecurrenceType, sortBy, familyMembers]);
     
     // Esemény szerkesztése
     const handleEditEvent = (event) => {
@@ -238,12 +260,36 @@ const RecurringEventsPage = ({ onLogout }) => {
     
     // Ismétlődési minta formázása
     const formatRecurrencePattern = (event) => {
+        // Ha egyszeri esemény
+        if (!event.recurrenceType || event.recurrenceType === 'none') {
+            if (event.date) {
+                const date = new Date(event.date);
+                const formattedDate = date.toLocaleDateString('hu-HU', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                return `Egyszeri - ${formattedDate}`;
+            }
+            return 'Egyszeri esemény';
+        }
+        
+        // Ismétlődő esemény
         if (event.recurrenceType === 'weekly') {
             const dayNames = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
             const days = (event.recurrenceDays || []).map(day => dayNames[day]).join(', ');
             return `Heti - ${days}`;
         }
-        return event.recurrenceType || 'Ismeretlen';
+        
+        const typeLabels = {
+            'daily': 'Naponta',
+            'weekly': 'Heti',
+            'biweekly': 'Kéthetente',
+            'monthly': 'Havi',
+            'yearly': 'Évente'
+        };
+        
+        return typeLabels[event.recurrenceType] || event.recurrenceType || 'Ismeretlen';
     };
     
     // Családtag neve
@@ -338,7 +384,23 @@ const RecurringEventsPage = ({ onLogout }) => {
                         </div>
                         
                         {/* Szűrők - jobb oldal */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                            {/* Esemény típus szűrő */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <i className="fas fa-filter mr-2"></i>Esemény típus
+                                </label>
+                                <select
+                                    value={eventTypeFilter}
+                                    onChange={(e) => setEventTypeFilter(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="all">Minden esemény</option>
+                                    <option value="recurring">Csak ismétlődő</option>
+                                    <option value="single">Csak egyszeri</option>
+                                </select>
+                            </div>
+                            
                             {/* Családtag szűrő */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -375,10 +437,14 @@ const RecurringEventsPage = ({ onLogout }) => {
                                 <select
                                     value={filterRecurrenceType}
                                     onChange={(e) => setFilterRecurrenceType(e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    disabled={eventTypeFilter === 'single'}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                 >
                                     <option value="">Összes</option>
-                                    {Array.from(new Set(recurringEvents.map(e => e.recurrenceType).filter(Boolean)))
+                                    {Array.from(new Set(allEvents
+                                        .filter(e => e.recurrenceType && e.recurrenceType !== 'none')
+                                        .map(e => e.recurrenceType)
+                                        .filter(Boolean)))
                                         .sort()
                                         .map(type => {
                                             const typeLabels = {
@@ -415,16 +481,18 @@ const RecurringEventsPage = ({ onLogout }) => {
                         </div>
                     </div>
                     
-                    {/* Hozzáadás gomb - csak kisebb képernyőkön (1500px alatt) */}
-                    <div className="2xl:hidden">
-                        <button
-                            onClick={handleAddEvent}
-                            className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition duration-300 ease-in-out"
-                        >
-                            <i className="fas fa-plus mr-2"></i>
-                            Új Ismétlődő Esemény
-                        </button>
-                    </div>
+                    {/* Hozzáadás gomb - csak kisebb képernyőkön (1500px alatt) és csak ismétlődő eseményeknél */}
+                    {eventTypeFilter !== 'single' && (
+                        <div className="2xl:hidden">
+                            <button
+                                onClick={handleAddEvent}
+                                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium transition duration-300 ease-in-out"
+                            >
+                                <i className="fas fa-plus mr-2"></i>
+                                Új Ismétlődő Esemény
+                            </button>
+                        </div>
+                    )}
                 </div>
                 
                 {/* Események listája */}
@@ -437,9 +505,11 @@ const RecurringEventsPage = ({ onLogout }) => {
                     <div className="bg-white p-8 rounded-lg shadow-md text-center">
                         <i className="fas fa-calendar-times text-6xl text-gray-300 mb-4"></i>
                         <p className="text-gray-600 text-lg">
-                            {recurringEvents.length === 0 
-                                ? "Még nincs ismétlődő esemény. Hozz létre egyet a fenti gombbal!"
-                                : "Nincs találat a kiválasztott szűrőkre."}
+                            {allEvents.length === 0 
+                                ? "Még nincs esemény."
+                                : filteredAndSortedEvents.length === 0
+                                ? "Nincs találat a kiválasztott szűrőkre."
+                                : "Nincs esemény ebben a kategóriában."}
                         </p>
                     </div>
                 ) : (
@@ -507,8 +577,18 @@ const RecurringEventsPage = ({ onLogout }) => {
                                                 </div>
                                             </div>
                                             
-                                            {/* Dátum tartomány */}
-                                            {(event.startDate || event.endDate) && (
+                                            {/* Dátum tartomány vagy egyszeri esemény dátuma */}
+                                            {(!event.recurrenceType || event.recurrenceType === 'none') && event.date && (
+                                                <div className="mt-2 text-xs text-gray-500">
+                                                    <span>Dátum: {new Date(event.date).toLocaleDateString('hu-HU', { 
+                                                        year: 'numeric', 
+                                                        month: 'long', 
+                                                        day: 'numeric',
+                                                        weekday: 'long'
+                                                    })}</span>
+                                                </div>
+                                            )}
+                                            {(event.recurrenceType && event.recurrenceType !== 'none') && (event.startDate || event.endDate) && (
                                                 <div className="mt-2 text-xs text-gray-500">
                                                     {event.startDate && (
                                                         <span>Kezdés: {new Date(event.startDate).toLocaleDateString('hu-HU')}</span>

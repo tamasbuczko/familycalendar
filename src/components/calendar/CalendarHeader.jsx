@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ColorPriorityToggle from '../ui/ColorPriorityToggle.jsx';
 import QuickAddDropdown from '../ui/QuickAddDropdown.jsx';
@@ -29,6 +29,7 @@ const CalendarHeader = ({
         : null;
     const childColor = childMember?.color;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useRef(null);
 
     const handleMenuToggle = () => {
         setIsMenuOpen(!isMenuOpen);
@@ -42,6 +43,27 @@ const CalendarHeader = ({
         callback();
         handleMenuClose();
     };
+
+    // Kattintás a menün kívülre - bezárás
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (isMenuOpen && menuRef.current && !menuRef.current.contains(event.target)) {
+                // Ellenőrizzük, hogy nem a hamburger gombra kattintottunk
+                const hamburgerButton = event.target.closest('button[aria-label="Menü megnyitása"]');
+                if (!hamburgerButton) {
+                    handleMenuClose();
+                }
+            }
+        };
+
+        if (isMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isMenuOpen]);
 
     return (
         <div className="bg-white shadow-md relative">
@@ -143,7 +165,7 @@ const CalendarHeader = ({
                                 <i className="fas fa-sign-out-alt mr-2"></i>Kilépés
                             </button>
                         ) : (
-                            // Admin mód - gyerek bejelentkezés, ismétlődő események, beállítások, család választó gombok
+                            // Admin mód - csak gyors gombok maradnak kint
                             <>
                                 <ColorPriorityToggle onChange={onColorPriorityChange} />
                                 <QuickAddDropdown 
@@ -151,47 +173,16 @@ const CalendarHeader = ({
                                     userId={userId}
                                     userFamilyId={userFamilyId}
                                 />
-                                <button
-                                    onClick={() => navigate('/app/templates')}
-                                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
-                                    title="Sablonok Menedzsmentje"
-                                >
-                                    <i className="fas fa-layer-group mr-2"></i>Sablonok
-                                </button>
-                                <button
-                                    onClick={onChildLoginClick}
-                                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
-                                >
-                                    <i className="fas fa-child mr-2"></i>Gyerek Bejelentkezés
-                                </button>
-                                <button
-                                    onClick={() => navigate('/app/recurring-events')}
-                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
-                                >
-                                    <i className="fas fa-redo mr-2"></i>Ismétlődő Események
-                                </button>
-                                <button
-                                    onClick={onSettingsClick}
-                                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
-                                >
-                                    <i className="fas fa-cog mr-2"></i>Beállítások
-                                </button>
-                                <button
-                                    onClick={onFamilySelectorClick}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition duration-300 ease-in-out transform hover:scale-105"
-                                >
-                                    <i className="fas fa-exchange-alt mr-2"></i>Család választó
-                                </button>
                             </>
                         )}
                     </div>
 
-                    {/* Hamburger menü gomb - csak mobilon és parent módban látható */}
+                    {/* Hamburger menü gomb - mindenhol látható (desktop és mobil) */}
                     {!isChildMode && (
-                        <div className="md:hidden">
+                        <div className="flex items-center ml-6">
                             <button
                                 onClick={handleMenuToggle}
-                                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none"
                                 aria-label="Menü megnyitása"
                             >
                                 {isMenuOpen ? (
@@ -217,121 +208,136 @@ const CalendarHeader = ({
                 </div>
             </div>
 
-            {/* Hamburger menü - csak mobilon látható */}
+            {/* Hamburger menü - desktop és mobil is */}
             {isMenuOpen && (
                 <>
-                    {/* Overlay - háttér elhalványítása */}
-                    <div 
-                        className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-                        onClick={handleMenuClose}
-                    ></div>
-                    
-                    {/* Menü panel */}
-                    <div className="absolute top-full left-0 right-0 bg-white shadow-lg z-50 md:hidden border-t">
+                    {/* Menü panel - desktop: jobb oldali dropdown, mobil: teljes szélesség */}
+                    <div ref={menuRef} className="absolute top-full right-0 md:right-4 bg-white shadow-lg z-50 border-t md:border md:rounded-lg md:w-80">
                         <div className="px-4 py-2">
-                            {/* Profil gomb */}
+                            {/* Profil gomb - csak mobilon */}
                             {isChildMode && childSession && (
-                                <button
-                                    onClick={() => handleMenuItemClick(onProfileClick)}
-                                    className="w-full text-left px-4 py-3 rounded-lg transition duration-200 mb-2"
-                                    style={{
-                                        backgroundColor: 'transparent'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (childColor) {
-                                            e.currentTarget.style.backgroundColor = `${childColor}10`;
-                                        } else {
-                                            e.currentTarget.style.backgroundColor = '#F3E8FF';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                    }}
-                                >
-                                    <div className="flex items-center">
-                                        <span className="text-2xl mr-3">{childSession.childAvatar}</span>
-                                        <div>
-                                            <div 
-                                                className="font-medium"
-                                                style={{
-                                                    color: childColor || '#6B21A8'
-                                                }}
-                                            >
-                                                {childSession.childName}
-                                            </div>
-                                            <div 
-                                                className="text-sm"
-                                                style={{
-                                                    color: childColor || '#9333EA'
-                                                }}
-                                            >
-                                                Gyerek profil
+                                <div className="md:hidden">
+                                    <button
+                                        onClick={() => handleMenuItemClick(onProfileClick)}
+                                        className="w-full text-left px-4 py-3 rounded-lg transition duration-200 mb-2"
+                                        style={{
+                                            backgroundColor: 'transparent'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (childColor) {
+                                                e.currentTarget.style.backgroundColor = `${childColor}10`;
+                                            } else {
+                                                e.currentTarget.style.backgroundColor = '#F3E8FF';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <div className="flex items-center">
+                                            <span className="text-2xl mr-3">{childSession.childAvatar}</span>
+                                            <div>
+                                                <div 
+                                                    className="font-medium"
+                                                    style={{
+                                                        color: childColor || '#6B21A8'
+                                                    }}
+                                                >
+                                                    {childSession.childName}
+                                                </div>
+                                                <div 
+                                                    className="text-sm"
+                                                    style={{
+                                                        color: childColor || '#9333EA'
+                                                    }}
+                                                >
+                                                    Gyerek profil
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </button>
+                                    </button>
+                                </div>
                             )}
                             {!isChildMode && (userDisplayName || userEmail) && (
-                                <button
-                                    onClick={() => handleMenuItemClick(onProfileClick)}
-                                    className="w-full text-left px-4 py-3 rounded-lg transition duration-200 mb-2"
-                                    style={{
-                                        backgroundColor: 'transparent'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (currentUserMember?.color) {
-                                            e.currentTarget.style.backgroundColor = `${currentUserMember.color}10`;
-                                        } else {
-                                            e.currentTarget.style.backgroundColor = '#F0FDF4';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                    }}
-                                >
-                                    <div className="flex items-center">
-                                        {currentUserMember?.avatar ? (
-                                            <span 
-                                                className="text-2xl mr-3"
-                                                style={{
-                                                    color: currentUserMember?.color || '#10B981'
-                                                }}
-                                            >
-                                                {currentUserMember.avatar}
-                                            </span>
-                                        ) : (
-                                            <i 
-                                                className="fas fa-user text-xl mr-3"
-                                                style={{
-                                                    color: currentUserMember?.color || '#10B981'
-                                                }}
-                                            ></i>
-                                        )}
-                                        <div>
-                                            <div 
-                                                className="font-medium"
-                                                style={{
-                                                    color: currentUserMember?.color || '#065F46'
-                                                }}
-                                            >
-                                                {userDisplayName || userEmail}
-                                            </div>
-                                            <div 
-                                                className="text-sm"
-                                                style={{
-                                                    color: currentUserMember?.color || '#10B981'
-                                                }}
-                                            >
-                                                Profil
+                                <div className="md:hidden">
+                                    <button
+                                        onClick={() => handleMenuItemClick(onProfileClick)}
+                                        className="w-full text-left px-4 py-3 rounded-lg transition duration-200 mb-2"
+                                        style={{
+                                            backgroundColor: 'transparent'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (currentUserMember?.color) {
+                                                e.currentTarget.style.backgroundColor = `${currentUserMember.color}10`;
+                                            } else {
+                                                e.currentTarget.style.backgroundColor = '#F0FDF4';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                    >
+                                        <div className="flex items-center">
+                                            {currentUserMember?.avatar ? (
+                                                <span 
+                                                    className="text-2xl mr-3"
+                                                    style={{
+                                                        color: currentUserMember?.color || '#10B981'
+                                                    }}
+                                                >
+                                                    {currentUserMember.avatar}
+                                                </span>
+                                            ) : (
+                                                <i 
+                                                    className="fas fa-user text-xl mr-3"
+                                                    style={{
+                                                        color: currentUserMember?.color || '#10B981'
+                                                    }}
+                                                ></i>
+                                            )}
+                                            <div>
+                                                <div 
+                                                    className="font-medium"
+                                                    style={{
+                                                        color: currentUserMember?.color || '#065F46'
+                                                    }}
+                                                >
+                                                    {userDisplayName || userEmail}
+                                                </div>
+                                                <div 
+                                                    className="text-sm"
+                                                    style={{
+                                                        color: currentUserMember?.color || '#10B981'
+                                                    }}
+                                                >
+                                                    Profil
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </button>
+                                    </button>
+                                </div>
                             )}
 
-                            {/* Elválasztó, ha van profil gomb */}
+                            {/* Elválasztó, ha van profil gomb (csak mobilon) */}
                             {((isChildMode && childSession) || (!isChildMode && (userDisplayName || userEmail))) && (
-                                <div className="border-t my-2"></div>
+                                <div className="border-t my-2 md:hidden"></div>
+                            )}
+
+                            {/* Gyors gombok - csak mobilon */}
+                            {!isChildMode && (
+                                <div className="md:hidden px-4 py-2 mb-2 flex items-center gap-2">
+                                    <ColorPriorityToggle onChange={onColorPriorityChange} />
+                                    <QuickAddDropdown 
+                                        onTemplateSelect={onQuickAddTemplateSelect}
+                                        userId={userId}
+                                        userFamilyId={userFamilyId}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Elválasztó gyors gombok után (csak mobilon) */}
+                            {!isChildMode && (
+                                <div className="border-t my-2 md:hidden"></div>
                             )}
 
                             {isChildMode ? (
@@ -343,40 +349,60 @@ const CalendarHeader = ({
                                     <i className="fas fa-sign-out-alt mr-3"></i>Kilépés
                                 </button>
                             ) : (
-                                // Admin mód - gyerek bejelentkezés, ismétlődő események, beállítások, család választó gombok
+                                // Admin mód - FontAwesome ikonokkal + szöveggel
                                 <>
-                                    <div className="px-4 py-2 mb-2">
-                                        <ColorPriorityToggle onChange={onColorPriorityChange} />
-                                    </div>
-                                    <button
-                                        onClick={() => handleMenuItemClick(onChildLoginClick)}
-                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-50 transition duration-200 text-purple-600 mb-2"
-                                    >
-                                        <i className="fas fa-child mr-3"></i>Gyerek Bejelentkezés
-                                    </button>
+                                    {/* Események csoport */}
                                     <button
                                         onClick={() => handleMenuItemClick(() => navigate('/app/templates'))}
-                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-green-50 transition duration-200 text-green-600 mb-2"
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-green-50 transition duration-200 text-gray-700 mb-1"
                                     >
-                                        <i className="fas fa-layer-group mr-3"></i>Sablonok
+                                        <i className="fas fa-layer-group mr-3"></i>
+                                        <span>Sablonok</span>
                                     </button>
                                     <button
                                         onClick={() => handleMenuItemClick(() => navigate('/app/recurring-events'))}
-                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-indigo-50 transition duration-200 text-indigo-600 mb-2"
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-indigo-50 transition duration-200 text-gray-700 mb-1"
                                     >
-                                        <i className="fas fa-redo mr-3"></i>Ismétlődő Események
+                                        <i className="fas fa-calendar-check mr-3"></i>
+                                        <span>Események</span>
                                     </button>
                                     <button
-                                        onClick={() => handleMenuItemClick(onSettingsClick)}
-                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 transition duration-200 text-gray-600 mb-2"
+                                        onClick={() => handleMenuItemClick(() => navigate('/app/annual-events'))}
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-yellow-50 transition duration-200 text-gray-700 mb-2"
                                     >
-                                        <i className="fas fa-cog mr-3"></i>Beállítások
+                                        <i className="fas fa-star mr-3"></i>
+                                        <span>Kiemelt Események</span>
+                                    </button>
+                                    
+                                    {/* Válaszvonal */}
+                                    <div className="border-t my-2"></div>
+                                    
+                                    {/* Család csoport */}
+                                    <button
+                                        onClick={() => handleMenuItemClick(onChildLoginClick)}
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-purple-50 transition duration-200 text-gray-700 mb-1"
+                                    >
+                                        <i className="fas fa-child mr-3"></i>
+                                        <span>Gyerek Bejelentkezés</span>
                                     </button>
                                     <button
                                         onClick={() => handleMenuItemClick(onFamilySelectorClick)}
-                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition duration-200 text-blue-600"
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-50 transition duration-200 text-gray-700 mb-2"
                                     >
-                                        <i className="fas fa-exchange-alt mr-3"></i>Család választó
+                                        <i className="fas fa-exchange-alt mr-3"></i>
+                                        <span>Család választó</span>
+                                    </button>
+                                    
+                                    {/* Válaszvonal */}
+                                    <div className="border-t my-2"></div>
+                                    
+                                    {/* Beállítások */}
+                                    <button
+                                        onClick={() => handleMenuItemClick(onSettingsClick)}
+                                        className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-50 transition duration-200 text-gray-700"
+                                    >
+                                        <i className="fas fa-cog mr-3"></i>
+                                        <span>Beállítások</span>
                                     </button>
                                 </>
                             )}

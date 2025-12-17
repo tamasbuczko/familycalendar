@@ -335,9 +335,10 @@ const CalendarView = ({
                                             event.status === 'cancelled' ? 'bg-red-100 border-red-300 text-red-800 line-through' :
                                             event.status === 'deleted' ? 'bg-gray-200 border-gray-400 text-gray-600 opacity-70' :
                                             event.status === 'completed' ? '' :
-                                            ''
+                                            event.isReminder ? 'border-l-4 border-yellow-400' : ''
                                         }`}
                                         style={event.status !== 'cancelled' && event.status !== 'deleted' ? {
+                                            opacity: event.isReminder ? (event.opacity || 0.7) : 1,
                                             backgroundColor: (() => {
                                                 // Ha event color priority és van event.color, azt használjuk
                                                 if (colorPriority === 'event' && event.color) {
@@ -392,11 +393,17 @@ const CalendarView = ({
                                         } : {}}
                                     >
                                         <div className="flex-1 min-w-0">
+                                            {event.isReminder && (
+                                                <p className="text-xs text-gray-500 mb-1 font-medium">Emlékeztető:</p>
+                                            )}
                                             <p className="font-semibold">
                                                 {event.name}
                                             </p>
                                             {event.isRecurringOccurrence && (
                                                 <p className="text-xs text-gray-500">(ismétlődő)</p>
+                                            )}
+                                            {event.isAnnualEvent && (
+                                                <p className="text-xs text-gray-500">(éves esemény)</p>
                                             )}
                                             <p className="text-sm">{event.time}{event.endTime && ` - ${event.endTime}`} {event.location && `- ${event.location}`}</p>
                                             <p className="text-xs text-gray-600 mt-1 flex items-center gap-1">

@@ -1,5 +1,6 @@
 import React from 'react';
 import CalendarView from './CalendarView.jsx';
+import VoiceEventInput from '../ui/VoiceEventInput.jsx';
 
 const CalendarControls = ({
     currentDate,
@@ -17,7 +18,10 @@ const CalendarControls = ({
     selectedMemberId,
     currentUserMember,
     isChildMode = false,
-    colorPriority = 'tag'
+    colorPriority = 'tag',
+    familyId,
+    onEventCreated,
+    onError
 }) => {
     // Szűrés a kiválasztott családtag szerint
     let filteredEvents = selectedMemberId 
@@ -87,6 +91,24 @@ const CalendarControls = ({
                 isChildMode={isChildMode}
                 colorPriority={colorPriority}
             />
+            
+            {/* AI-alapú eseményfelvétel - a naptár alatt */}
+            {!isChildMode && (
+                <div className="mt-6 bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-gray-700 mb-4">
+                        <i className="fas fa-robot mr-2 text-blue-600"></i>
+                        AI-alapú eseményfelvétel
+                    </h2>
+                    <VoiceEventInput
+                        familyId={familyId}
+                        familyMembers={familyMembers}
+                        userId={userId}
+                        currentUserMember={currentUserMember}
+                        onEventCreated={onEventCreated}
+                        onError={onError}
+                    />
+                </div>
+            )}
         </div>
     );
 };

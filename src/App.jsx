@@ -7,6 +7,7 @@ import FamilySetupScreen from './components/family/FamilySetupScreen.jsx';
 import CalendarApp from './components/calendar/CalendarApp.jsx';
 import RecurringEventsPage from './components/calendar/RecurringEventsPage.jsx';
 import TemplatesPage from './components/calendar/TemplatesPage.jsx';
+import AnnualEventsPage from './components/calendar/AnnualEventsPage.jsx';
 import { signOut } from 'firebase/auth';
 
 // Fő alkalmazás komponens
@@ -60,6 +61,7 @@ function AppRoutes() {
             <Route path="/" element={<CalendarApp onLogout={handleLogout} />} />
             <Route path="/recurring-events" element={<RecurringEventsPage onLogout={handleLogout} />} />
             <Route path="/templates" element={<TemplatesPage onLogout={handleLogout} />} />
+            <Route path="/annual-events" element={<AnnualEventsPage onLogout={handleLogout} />} />
             <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>
     );

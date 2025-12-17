@@ -17,7 +17,7 @@ const QuickAddDropdown = ({ onTemplateSelect, userId, userFamilyId }) => {
 
     // User Templates lekérése
     useEffect(() => {
-        if (!db || !userFamilyId) {
+        if (!db || !userFamilyId || !userId) {
             setLoading(false);
             return;
         }
@@ -33,11 +33,18 @@ const QuickAddDropdown = ({ onTemplateSelect, userId, userFamilyId }) => {
             setLoading(false);
         }, (error) => {
             console.error("QuickAddDropdown: Error loading user templates:", error);
+            console.error("QuickAddDropdown: Error details:", {
+                code: error.code,
+                message: error.message,
+                userId,
+                userFamilyId,
+                path: `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/userTemplates`
+            });
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, [db, userFamilyId]);
+    }, [db, userFamilyId, userId]);
 
     // Szűrt sablonok (max 10)
     const filteredTemplates = useMemo(() => {

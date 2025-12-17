@@ -6,7 +6,7 @@ const admin = require("firebase-admin");
  * Esemény létrehozásakor értesítések ütemezése
  */
 const scheduleEventNotifications = async (snap, context) => {
-    var _a, _b;
+    var _a, _b, _c;
     const event = snap.data();
     const { familyId } = context.params;
     if (!event) {
@@ -14,17 +14,33 @@ const scheduleEventNotifications = async (snap, context) => {
         return;
     }
     try {
+        // Értesítés kapó személyek meghatározása
+        const notificationRecipients = event.notificationRecipients || [];
+        // Ha nincs explicit beállítás, akkor csak a létrehozó kap értesítést (alapértelmezett)
+        const recipientsToNotify = notificationRecipients.length > 0
+            ? notificationRecipients
+            : (event.createdBy ? [event.createdBy] : []);
+        console.log(`Event ${context.params.eventId} notification recipients:`, recipientsToNotify);
+        if (recipientsToNotify.length === 0) {
+            console.log('No notification recipients specified, skipping notification scheduling');
+            return;
+        }
         // Családtagok lekérése
         const familyMembers = await admin.firestore()
             .collection(`artifacts/${context.params.projectId}/families/${familyId}/members`)
             .get();
         console.log(`Found ${familyMembers.docs.length} family members for event ${context.params.eventId}`);
-        // Minden családtaghoz értesítések ütemezése
+        // Csak azokhoz a családtagokhoz értesítések ütemezése, akik a notificationRecipients listában vannak
         for (const member of familyMembers.docs) {
             const memberData = member.data();
             const userId = memberData.userId;
             if (!userId) {
                 console.log('Member has no userId, skipping');
+                continue;
+            }
+            // Csak akkor küldünk értesítést, ha a felhasználó a notificationRecipients listában van
+            if (!recipientsToNotify.includes(userId)) {
+                console.log(`User ${userId} not in notification recipients list, skipping`);
                 continue;
             }
             // Felhasználó értesítési beállításai
@@ -41,8 +57,8 @@ const scheduleEventNotifications = async (snap, context) => {
                 console.log(`Event reminders disabled for user ${userId}`);
                 continue;
             }
-            // Emlékeztető idők
-            const reminderTimes = preferences.eventReminders.times || [10, 30];
+            // Emlékeztető idők - használjuk az esemény beállításait, ha vannak, különben a felhasználó beállításait
+            const reminderTimes = ((_c = event.reminders) === null || _c === void 0 ? void 0 : _c.times) || preferences.eventReminders.times || [10, 30];
             console.log(`Scheduling notifications for user ${userId} with times: ${reminderTimes.join(', ')}`);
             for (const minutes of reminderTimes) {
                 const scheduledTime = new Date(event.date);

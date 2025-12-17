@@ -56,6 +56,22 @@ export const useCalendarUtils = () => {
                 return; // Kihagyjuk a törölt eseményeket
             }
             
+            // Éves események kezelése (isAnnualEvent vagy annualEventId mezővel)
+            if (event.isAnnualEvent || event.annualEventId) {
+                const eventDate = new Date(event.date);
+                eventDate.setHours(0, 0, 0, 0);
+                // Csak akkor adjuk hozzá, ha az aktuális nézetben látható napok között esik
+                if (eventDate >= weekStart && eventDate <= weekEnd) {
+                    displayEvents.push({
+                        ...event,
+                        displayDate: eventDate,
+                        isRecurringOccurrence: false,
+                        originalEventId: event.id,
+                    });
+                }
+                return; // Ne folytassuk a többi logikával
+            }
+            
             if (event.recurrenceType === 'none') {
                 const eventDate = new Date(event.date);
                 eventDate.setHours(0, 0, 0, 0);

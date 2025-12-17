@@ -35,6 +35,11 @@ service cloud.firestore {
       match /userTemplates/{templateId} {
         allow read, write: if isAuthenticated();
       }
+      
+      // Annual events (éves események - születésnapok, névnapok, évfordulók)
+      match /annualEvents/{annualEventId} {
+        allow read, write: if isAuthenticated();
+      }
     }
     
     // Family listing
