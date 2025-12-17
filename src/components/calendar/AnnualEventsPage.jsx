@@ -96,14 +96,19 @@ const AnnualEventsPage = ({ onLogout }) => {
     // Annual Events lekérése
     useEffect(() => {
         if (!db || !userFamilyId || !userId) {
+            console.log("AnnualEventsPage: Missing required data:", { db: !!db, userFamilyId, userId });
             setLoading(false);
             return;
         }
         
         setLoading(true);
-        const annualEventsColRef = collection(db, `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/annualEvents`);
+        const collectionPath = `artifacts/${firebaseConfig.projectId}/families/${userFamilyId}/annualEvents`;
+        console.log("AnnualEventsPage: Loading annual events from:", collectionPath);
+        
+        const annualEventsColRef = collection(db, collectionPath);
         
         const unsubscribe = onSnapshot(annualEventsColRef, (snapshot) => {
+            console.log("AnnualEventsPage: Snapshot received, docs count:", snapshot.docs.length);
             const fetchedEvents = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -112,7 +117,15 @@ const AnnualEventsPage = ({ onLogout }) => {
             setLoading(false);
         }, (error) => {
             console.error("AnnualEventsPage: Error loading annual events:", error);
-            setMessage("Hiba az éves események betöltésekor. Ellenőrizd, hogy be vagy-e jelentkezve.");
+            console.error("AnnualEventsPage: Error details:", {
+                code: error.code,
+                message: error.message,
+                userId,
+                userFamilyId,
+                projectId: firebaseConfig.projectId,
+                path: collectionPath
+            });
+            setMessage(`Hiba az éves események betöltésekor: ${error.message}. Ellenőrizd, hogy be vagy-e jelentkezve.`);
             setLoading(false);
         });
         
@@ -483,33 +496,85 @@ const AnnualEventsPage = ({ onLogout }) => {
 
 // Éves esemény modal komponens (egyszerűsített EventModal)
 const AnnualEventModal = ({ event, onSave, onClose }) => {
+    // Hónapok listája
+    const months = [
+        { value: '01', label: 'Január' },
+        { value: '02', label: 'Február' },
+        { value: '03', label: 'Március' },
+        { value: '04', label: 'Április' },
+        { value: '05', label: 'Május' },
+        { value: '06', label: 'Június' },
+        { value: '07', label: 'Július' },
+        { value: '08', label: 'Augusztus' },
+        { value: '09', label: 'Szeptember' },
+        { value: '10', label: 'Október' },
+        { value: '11', label: 'November' },
+        { value: '12', label: 'December' }
+    ];
+    
+    // Napok számának meghatározása a hónap alapján
+    const getDaysInMonth = (month) => {
+        const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        return daysInMonth[parseInt(month) - 1] || 31;
+    };
+    
+    // Dátum inicializálás MM-DD formátumból
+    const initializeDate = (mmdd) => {
+        if (mmdd && mmdd.includes('-')) {
+            const [month, day] = mmdd.split('-');
+            return { month, day };
+        }
+        // Alapértelmezett: mai dátum
+        const today = new Date();
+        return {
+            month: (today.getMonth() + 1).toString().padStart(2, '0'),
+            day: today.getDate().toString().padStart(2, '0')
+        };
+    };
+    
+    const initialDate = initializeDate(event?.date);
     const [name, setName] = useState(event?.name || '');
     const [type, setType] = useState(event?.type || 'birthday');
-    const [date, setDate] = useState(event?.date || ''); // MM-DD formátum
+    const [selectedMonth, setSelectedMonth] = useState(initialDate.month);
+    const [selectedDay, setSelectedDay] = useState(initialDate.day);
     const [color, setColor] = useState(event?.color || '#FFB6C1');
     const [icon, setIcon] = useState(event?.icon || '🎂');
     const [notes, setNotes] = useState(event?.notes || '');
     const [notifyPrior, setNotifyPrior] = useState(event?.notifyPrior !== false);
     
+    // Napok generálása a kiválasztott hónap alapján
+    const availableDays = useMemo(() => {
+        const daysCount = getDaysInMonth(selectedMonth);
+        const days = [];
+        for (let i = 1; i <= daysCount; i++) {
+            days.push(i.toString().padStart(2, '0'));
+        }
+        return days;
+    }, [selectedMonth]);
+    
+    // Ha a nap nagyobb, mint a hónapban lévő napok száma, állítsuk be az utolsó napra
+    useEffect(() => {
+        const maxDay = getDaysInMonth(selectedMonth);
+        if (parseInt(selectedDay) > maxDay) {
+            setSelectedDay(maxDay.toString().padStart(2, '0'));
+        }
+    }, [selectedMonth, selectedDay]);
+    
     const handleSubmit = (e) => {
         e.preventDefault();
         
-        if (!name.trim() || !date.trim()) {
+        if (!name.trim() || !selectedMonth || !selectedDay) {
             alert('Kérlek töltsd ki a kötelező mezőket!');
             return;
         }
         
-        // Dátum validálás (MM-DD)
-        const dateRegex = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
-        if (!dateRegex.test(date)) {
-            alert('A dátum formátuma: MM-DD (pl. 04-12)');
-            return;
-        }
+        // MM-DD formátum
+        const dateMMDD = `${selectedMonth}-${selectedDay}`;
         
         onSave({
             name: name.trim(),
             type,
-            date,
+            date: dateMMDD,
             color,
             icon,
             notes: notes.trim() || null,
@@ -574,18 +639,41 @@ const AnnualEventModal = ({ event, onSave, onClose }) => {
                         
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Dátum (MM-DD) *
+                                Dátum (Hónap és Nap) *
                             </label>
-                            <input
-                                type="text"
-                                value={date}
-                                onChange={(e) => setDate(e.target.value)}
-                                className="w-full p-2 border border-gray-300 rounded-lg"
-                                placeholder="04-12"
-                                pattern="(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])"
-                                required
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Formátum: MM-DD (pl. 04-12 április 12.)</p>
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <select
+                                        value={selectedMonth}
+                                        onChange={(e) => setSelectedMonth(e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-lg"
+                                        required
+                                    >
+                                        {months.map(month => (
+                                            <option key={month.value} value={month.value}>
+                                                {month.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <select
+                                        value={selectedDay}
+                                        onChange={(e) => setSelectedDay(e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-lg"
+                                        required
+                                    >
+                                        {availableDays.map(day => (
+                                            <option key={day} value={day}>
+                                                {parseInt(day)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Válaszd ki a hónapot és napot. Az év nem számít, mert évente ismétlődik.
+                            </p>
                         </div>
                         
                         <div>
